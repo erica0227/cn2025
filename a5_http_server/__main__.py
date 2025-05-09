@@ -1,8 +1,9 @@
 import json
-from argparse import Namespace, ArgumentParser
-import socket
-import select
 import os
+import select
+import socket
+from argparse import ArgumentParser, Namespace
+
 file_path = os.path.dirname(os.path.realpath(__file__))
 with open(os.path.join(file_path, "mime.json"), "r") as f:
     mime = json.load(f)
@@ -14,6 +15,7 @@ def get_file_type(path):
     else:
         return "text/plain"
 
+
 def parse_arguments() -> Namespace:
     """
     Parse command line arguments for the http server.
@@ -23,6 +25,7 @@ def parse_arguments() -> Namespace:
         --directory: The directory to serve. Default is "data"
     :return: The parsed arguments in a Namespace object.
     """
+
 
     parser: ArgumentParser = ArgumentParser(
         prog="python -m a5_http_server",
@@ -55,7 +58,7 @@ def main() -> None:
     sock_list: list[socket.socket] = [listen_socket]
 
     while True:
-        read_list, _, _ = select.select(sock_list,[],[])
+        read_list, _, _ = select.select(sock_list, [], [])
         # timeout of 0 seconds, makes the method call non-blocking
         if read_list:
             for sock in read_list:
@@ -71,8 +74,10 @@ def main() -> None:
 class Headers:
     def __init__(self):
         self.headers = {}
+
     def set_header(self, key, val):
         self.headers[key] = val
+
     def set_status(self, code_status: str):
         self.status_line = f"HTTP/1.1 {code_status}"
 
@@ -85,7 +90,7 @@ class Headers:
     def set_connection(self, keep_alive: bool):
         if keep_alive:
             self.headers["Connection"] = "keep-Alive"
-            self.headers["Keep-Alive"] = "timeout=5, max=1000"
+            self.headers["Keep-Alive"] = "timeout=10, max=1000"
         else:
             self.headers["Connection"] = "close"
 
@@ -95,6 +100,7 @@ class Headers:
             header_str += f"{key}: {value}\r\n"
         header_str += "\r\n"
         return header_str.encode("utf-8")
+
 
 """
 header = (
@@ -108,50 +114,62 @@ header = (
 """
 
 def receive_msg(sock: socket.socket, base_directory: str) -> None:
-    client_msg = sock.recv(4096).decode()
-    if not client_msg:
-        return
-    request = client_msg.split(" ")
-    request_path = base_directory + request[1]
+        client_msg = ""
+        while "\r\n\r\n" not in client_msg:
+            data = sock.recv(1).decode()
+            client_msg += data
 
-    header = Headers()
-    header.set_status("200 OK")
+        if not client_msg:
+            return
 
-    header.set_connection(True)
+        request = client_msg.split(" ")
+        request_path = base_directory + request[1]
 
-    if len(request) >= 3 and client_msg.startswith("GET") and request[1].startswith("/") and request[2].startswith("HTTP/1.1"):
-        # print(f"Received path: {request_path}"
-        if request[1] == "/" or os.path.isdir(request_path):
-            if request_path.endswith("/"):
-                request_path = request_path[:-1]
-            request_path = os.path.join(request_path, "index.html")
-        print(request_path)
-        if os.path.isfile(request_path):
+        header = Headers()
+        header.set_status("200 OK")
+
+        header.set_connection(True)
+
+
+        if  len(request) >= 3 and client_msg.startswith("GET") and request[1].startswith("/"):
+            # print(f"Received path: {request_path}"
+            if request[2].startswith("HTTP/1.1"):
+
+                if request[1] == "/" or os.path.isdir(request_path):
+                    if request_path.endswith("/"):
+                        request_path = request_path[:-1]
+                    request_path = os.path.join(request_path, "index.html")
+                print(request_path)
+
+                if os.path.isfile(request_path):
+                    with open(request_path, "rb") as f:
+                        body = f.read()
+
+                elif not os.path.exists(request_path):
+                    request_path = base_directory + "/404.html"
+                    with open(request_path, "rb") as f:
+                        body = f.read()
+                    header.set_status("404 Not Found")
+                    header.set_connection(False)
+
+            else:
+                request_path = base_directory + "/400.html"
+                with open(request_path, "rb") as f:
+                    body = f.read()
+                header.set_status("400 Bad Request")
+                header.set_connection(True)
+
+        else:
+            request_path = base_directory + "/400.html"
             with open(request_path, "rb") as f:
                 body = f.read()
+            header.set_status("400 Bad Request")
+            header.set_connection(True)
 
-
-
-        elif not os.path.exists(request_path):
-            request_path = base_directory + "/404.html"
-            with open(request_path, "rb") as f:
-                body = f.read()
-
-            header.set_status("404 Not Found")
-            header.set_connection(False)
-
-    else:
-        request_path = base_directory + "/400.html"
-        with open(request_path, "rb") as f:
-            body = f.read()
-
-        header.set_status("400 Bad Request")
-        header.set_connection(False)
-    header.set_content_type(get_file_type(request_path))
-    header.set_content_length(len(body))
-    response = header.build() + body
-    send_message(response, sock)
-
+        header.set_content_type(get_file_type(request_path))
+        header.set_content_length(len(body))
+        response = header.build() + body
+        send_message(response, sock)
 
 def send_message(message: bytes, sock: socket.socket) -> None:
     bytes_len = len(message)
