@@ -63,7 +63,6 @@ def main() -> None:
 
     run = True
     while run:
-
         screen.fill((0, 0, 0))
         add_pacman()
 
