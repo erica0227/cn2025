@@ -5,19 +5,43 @@ from map import grid
 # Constants
 GRID_WIDTH = len(grid[0])
 GRID_HEIGHT = len(grid)
-CELL_SIZE = 40
+GRID_SIZE = 30
 BLACK = (0, 0, 0)
 BLUE = (0, 0, 255)
 
 # Initialize game variables
-enemy = []
-pacman_pos = None
-ghost_pos = None
-# score = 0
-# game_over = False
+pacman_pos = [7, 7]
+ghost_pos = [1, 1]
+ghost_positions = [(1, 1)]
+score = 0
+game_over = False
 
-def move_pacman(direction, screen) -> None:
-    row, col = pacman_pos
+# Get Pac-Man & Ghost positions
+def get_positions() -> None:
+    global pacman_pos, ghost_pos, ghost_positions
+    for row_idx, row in enumerate(grid):
+        for col_idx, cell in enumerate(row):
+            if cell == 4:
+                pacman_pos = [row_idx, col_idx]
+            elif cell == 3:
+                ghost_pos = [row_idx, col_idx]
+                ghost_positions.append([row_idx, col_idx])
+
+def draw_maze(screen, ghost1, pacman) -> None:
+    global ghost_pos, ghost_positions
+    for row_idx, row in enumerate(grid):
+        for col_idx, cell in enumerate(row):
+            x, y = col_idx * GRID_SIZE, row_idx * GRID_SIZE
+            if cell == 1:
+                pygame.draw.rect(screen, BLUE, (x, y, GRID_SIZE, GRID_SIZE))
+            elif cell == 3:
+                screen.blit(ghost1, (ghost_pos[1] * GRID_SIZE, ghost_pos[0] * GRID_SIZE))
+            elif cell == 4:
+                screen.blit(pacman, (pacman_pos[1] * GRID_SIZE, pacman_pos[0] * GRID_SIZE))
+
+def move_ghost(direction, screen) -> None:
+    global ghost_pos
+    row, col = ghost_pos
     new_row, new_col = row, col
     if direction == "UP":
         new_row -= 1
@@ -28,21 +52,17 @@ def move_pacman(direction, screen) -> None:
     elif direction == "RIGHT":
         new_col += 1
 
+    # if grid[new_row][new_col] != 1:
+    grid[row][col] = 0  # Clear old position
+    grid[new_row][new_col] = 3  # Move ghost
+    ghost_pos = [new_row, new_col]
+
 def main() -> None:
     pygame.init()
-    screen = pygame.display.set_mode((GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE))
+    screen = pygame.display.set_mode((GRID_WIDTH * GRID_SIZE, GRID_HEIGHT * GRID_SIZE))
     pygame.display.set_caption("pacman")
     pacman = pygame.image.load('images/pacman.png').convert_alpha()
     ghost1 = pygame.image.load('images/ghost1.png').convert_alpha()
-
-    for y in range(GRID_HEIGHT):
-        for x in range(GRID_WIDTH):
-            if grid[y][x] == 3:
-                ghost_pos = pygame.Rect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE)
-                break
-            if grid[y][x] == 4:
-                pacman_pos = pygame.Rect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE)
-                break
 
     # Set up BFS queue and visited set
     bfs_queue = queue.Queue()
@@ -53,41 +73,21 @@ def main() -> None:
     while run:
         screen.fill(BLACK)
 
-        # Draw the map
-        for y in range(GRID_HEIGHT):
-            for x in range(GRID_WIDTH):
-                if grid[y][x] == 1:
-                    pygame.draw.rect(screen, BLUE, (x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_UP:
+                    move_ghost("UP", screen)
+                elif event.key == pygame.K_DOWN:
+                    move_ghost("DOWN", screen)
+                elif event.key == pygame.K_LEFT:
+                    move_ghost("LEFT", screen)
+                elif event.key == pygame.K_RIGHT:
+                    move_ghost("RIGHT", screen)
 
-        screen.blit(ghost1, ghost_pos)
-        # pacman_pos = (random.randint(0, GRID_HEIGHT - 1), random.randint(0, GRID_WIDTH - 1))
-        # enemy.append(pacman_pos)
-        screen.blit(pacman, pacman_pos)
-
-        # Move the ghost
-        key = pygame.key.get_pressed()
-        if key[pygame.K_LEFT]:
-            ghost_pos.move_ip(-1, 0)
-        elif key[pygame.K_RIGHT]:
-            ghost_pos.move_ip(1, 0)
-        elif key[pygame.K_UP]:
-            ghost_pos.move_ip(0, -1)
-        elif key[pygame.K_DOWN]:
-            ghost_pos.move_ip(0, 1)
-
-        # for event in pygame.event.get():
-        #     if event.type == pygame.QUIT:
-        #         pygame.quit()
-        #         exit()
-        #     elif event.type == pygame.KEYDOWN:
-        #         if event.key == pygame.K_UP:
-        #             move_pacman("UP", screen)
-        #         elif event.key == pygame.K_DOWN:
-        #             move_pacman("DOWN", screen)
-        #         elif event.key == pygame.K_LEFT:
-        #             move_pacman("LEFT", screen)
-        #         elif event.key == pygame.K_RIGHT:
-        #             move_pacman("RIGHT", screen)
+        draw_maze(screen, ghost1, pacman)
 
         pygame.display.flip()
 
