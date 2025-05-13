@@ -182,6 +182,7 @@ def main() -> None:
     client2_addr = ("0.0.0.0", 12346)
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     client_socket.bind(client1_addr)
+    client_sockets = [client_socket]
 
     global current_direction, client_id_recv, packet_type_recv
     pygame.init()
@@ -254,11 +255,15 @@ def main() -> None:
         packet = struct.pack("BBB", client_id_send, packet_type_send, direction_send)
         client_socket.sendto(packet, client2_addr)
         # Receive data
-        data, addr = client_socket.recvfrom(1024)
-        print(data, "from", addr)
-
-        client_id_recv, packet_type_recv, direction = struct.unpack("BBB", data)
-        print("Received:", client_id_recv, packet_type_recv, direction)
+        readlist, _, _ = select.select(client_sockets, [], [], 0.1)
+        for sock in readlist:
+            try:
+                data, addr = sock.recvfrom(1024)
+                print(data, "from", addr)
+                client_id_recv, packet_type_recv, direction = struct.unpack("BBB", data)
+                print("Received:", client_id_recv, packet_type_recv, direction)
+            except socket.timeout:
+                pass
 
         draw_maze(screen, ghost1, pacman)
         pygame.display.flip()
