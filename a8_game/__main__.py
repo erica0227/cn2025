@@ -13,23 +13,31 @@ RED = (255, 0, 0)
 WHITE = (255, 255, 255)
 
 # Initialize game variables
-current_direction = None
-pacman_pos = (7, 7)
-ghost_pos = [1, 13]
-ghost_positions = [(1, 1)]
 lives = 3
 score = 0
 game_over = False
+current_direction = None
+pacman_pos = ()
+ghost_pos = ()
+ghost_positions = []
+for row_idx, row in enumerate(grid):
+    for col_idx, cell in enumerate(row):
+        if cell == 2:
+            pacman_pos = (row_idx, col_idx)
+        elif cell == 3:
+            ghost_pos = (row_idx, col_idx)
+            ghost_positions.append((row_idx, col_idx))
+            # print(ghost_positions)
 
 # Get Pac-Man & Ghost positions
 def get_positions() -> None:
     global pacman_pos, ghost_pos, ghost_positions
     for row_idx, row in enumerate(grid):
         for col_idx, cell in enumerate(row):
-            if cell == 4:
-                pacman_pos = [row_idx, col_idx]
+            if cell == 2:
+                pacman_pos = (row_idx, col_idx)
             elif cell == 3:
-                ghost_pos = [row_idx, col_idx]
+                ghost_pos = (row_idx, col_idx)
                 ghost_positions.append((row_idx, col_idx))
 
 def move_ghost(direction, screen) -> None:
@@ -48,7 +56,7 @@ def move_ghost(direction, screen) -> None:
     if grid[new_row][new_col] != 1:
         grid[row][col] = 0  # Clear old position
         grid[new_row][new_col] = 3  # Move ghost
-        ghost_pos = [new_row, new_col]
+        ghost_pos = (new_row, new_col)
 
     check_collision(screen)
     move_pacman(screen)
@@ -59,33 +67,37 @@ def move_pacman(screen) -> None:
 
     print("Pacman moved")
     print("Pacman position:", pacman_pos)
-    print(ghost_positions)
+    print("ghost position:", ghost_pos)
     direction = bfs_alg()
 
-    print(pacman_pos)
+    print("Pacman position:", pacman_pos)
     pacman_pos = tuple_add(pacman_pos, direction)
-    print(pacman_pos)
+    print("Pacman position:", pacman_pos)
     check_collision(screen)
 
 def check_collision(screen):
     global lives, pacman_pos, ghost_pos, ghost_positions, current_direction
-    for ghost in ghost_positions:
-        if ghost_pos == pacman_pos:
-            lives -= 1
-            if lives > 0:
-                display_message(screen, "You lost a life!", RED)
-            if lives == 0:
-                display_message(screen, "Game Over!", RED)
-                pygame.quit()
-                exit()
+    if ghost_pos == pacman_pos:
+        lives -= 1
+        if lives > 0:
+            display_message(screen, "You lost a life!", RED)
+        if lives == 0:
+            display_message(screen, "Game Over!", RED)
+            pygame.quit()
+            exit()
 
-            # Reset Pac-Man position and update the maze immediately
-            old_row, old_col = ghost_pos
-            grid[old_row][old_col] = 0  # Clear old position
-            ghost_pos = [1, 1]  # Reset to start position
-            grid[1][1] = 3  # Place Pac-man back on the grid
-            grid[7][7] = 4  # Place Ghost back on the grid
-            current_direction = None
+        # Reset Pac-Man position and update the maze immediately
+        grid[pacman_pos[0]][pacman_pos[1]] = 0
+        grid[ghost_pos[0]][ghost_pos[1]] = 0
+
+        # Now reset logical positions
+        ghost_pos = (1, 13)
+        pacman_pos = (7, 7)
+
+        # Now update grid to show new positions
+        grid[ghost_pos[0]][ghost_pos[1]] = 3
+        grid[pacman_pos[0]][pacman_pos[1]] = 2
+        current_direction = None
 
 def display_message(screen, message, color = WHITE):
     font = pygame.font.Font(None, 50)
@@ -104,7 +116,7 @@ def draw_maze(screen, ghost1, pacman) -> None:
                 pygame.draw.rect(screen, BLUE, (x, y, GRID_SIZE, GRID_SIZE))
             elif cell == 3:
                 screen.blit(ghost1, (ghost_pos[1] * GRID_SIZE, ghost_pos[0] * GRID_SIZE))
-            elif cell == 4:
+            elif cell == 2:
                 screen.blit(pacman, (pacman_pos[1] * GRID_SIZE, pacman_pos[0] * GRID_SIZE))
 
 def tuple_add(t1: tuple[int, int], t2: tuple[int, int]) -> tuple[int, int]:
@@ -114,8 +126,7 @@ def inverse_tuple(t1: tuple[int, int]) -> tuple[int, int]:
 
 
 def bfs_alg():
-    global ghost_pos, pacman_pos
-
+    global pacman_pos, ghost_pos, ghost_positions
     visit_grid = copy.deepcopy(grid)  # deep copy
     directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
     q = queue.Queue()
