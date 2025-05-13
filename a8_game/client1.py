@@ -1,4 +1,5 @@
 import socket
+import select
 import pygame
 import queue
 import copy
@@ -19,6 +20,8 @@ lives = 3
 score = 0
 game_over = False
 current_direction = None
+client_id_recv = None
+packet_type_recv = None
 pacman_pos = ()
 ghost_pos = ()
 ghost_positions = []
@@ -68,12 +71,12 @@ def move_pacman(screen) -> None:
 
     print("Pacman moved")
     print("Pacman position:", pacman_pos)
-    print("ghost position:", ghost_pos)
+    # print("ghost position:", ghost_pos)
     direction = bfs_alg()
 
-    print("Pacman position:", pacman_pos)
+    # print("Pacman position:", pacman_pos)
     pacman_pos = tuple_add(pacman_pos, direction)
-    print("Pacman position:", pacman_pos)
+    # print("Pacman position:", pacman_pos)
     check_collision(screen)
 
 def check_collision(screen):
@@ -178,9 +181,9 @@ def main() -> None:
     client1_addr = ("0.0.0.0", 12345)
     client2_addr = ("0.0.0.0", 12346)
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    client_socket.bind(client2_addr)
+    client_socket.bind(client1_addr)
 
-    global current_direction
+    global current_direction, client_id_recv, packet_type_recv
     pygame.init()
     screen = pygame.display.set_mode((GRID_WIDTH * GRID_SIZE, GRID_HEIGHT * GRID_SIZE))
     pygame.display.set_caption("pacman1")
@@ -221,21 +224,21 @@ def main() -> None:
             #     raise e
             move_ghost(current_direction, screen)
 
-        direction = 0
+        direction_send = 0
         if current_direction == "UP":
-            direction = 1
+            direction_send = 1
         elif current_direction == "DOWN":
-            direction = 2
+            direction_send = 2
         elif current_direction == "LEFT":
-            direction = 3
+            direction_send = 3
         elif current_direction == "RIGHT":
-            direction = 4
+            direction_send = 4
 
-        # Send data
-        client_socket.sendto(b"PACMAN", client2_addr)
-        # Receive data
-        data, addr = client_socket.recvfrom(1024)
-        print(data, "from", addr)
+        # # Send data
+        # client_socket.sendto(b"PACMAN", client2_addr)
+        # # Receive data
+        # data, addr = client_socket.recvfrom(1024)
+        # print(data, "from", addr)
 
         # packet_type = 1 # 1 means position
         # client_id = 1 # send to ghost2
@@ -244,6 +247,18 @@ def main() -> None:
         # # Receive data
         # data, addr = client_socket.recvfrom(1024)
         # print("Received:", data)
+
+        # Send data
+        packet_type_send = 1 # 1 means position
+        client_id_send = 2 # send to ghost2
+        packet = struct.pack("BBB", client_id_send, packet_type_send, direction_send)
+        client_socket.sendto(packet, client2_addr)
+        # Receive data
+        data, addr = client_socket.recvfrom(1024)
+        print(data, "from", addr)
+
+        client_id_recv, packet_type_recv, direction = struct.unpack("BBB", data)
+        print("Received:", client_id_recv, packet_type_recv, direction)
 
         draw_maze(screen, ghost1, pacman)
         pygame.display.flip()
