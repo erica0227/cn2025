@@ -2,6 +2,7 @@ import socket
 import pygame
 import queue
 import copy
+import struct
 from map1 import grid
 
 # Constants
@@ -62,7 +63,6 @@ def move_ghost(direction, screen) -> None:
     check_collision(screen)
     move_pacman(screen)
 
-# The function for moving pacman
 def move_pacman(screen) -> None:
     global pacman_pos
 
@@ -122,6 +122,7 @@ def draw_maze(screen, ghost1, pacman) -> None:
 
 def tuple_add(t1: tuple[int, int], t2: tuple[int, int]) -> tuple[int, int]:
     return t1[0] + t2[0], t1[1] + t2[1]
+
 def inverse_tuple(t1: tuple[int, int]) -> tuple[int, int]:
     return -t1[0], -t1[1]
 
@@ -174,14 +175,15 @@ def bfs_alg():
                     break
 
 def main() -> None:
-    client_address = ("0.0.0.0", 12345)
+    client1_addr = ("0.0.0.0", 12345)
+    client2_addr = ("0.0.0.0", 12346)
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    client_socket.bind(client_address)
+    client_socket.bind(client2_addr)
 
     global current_direction
     pygame.init()
     screen = pygame.display.set_mode((GRID_WIDTH * GRID_SIZE, GRID_HEIGHT * GRID_SIZE))
-    pygame.display.set_caption("pacman")
+    pygame.display.set_caption("pacman1")
     pacman = pygame.image.load('images/pacman.png').convert_alpha()
     ghost1 = pygame.image.load('images/ghost1.png').convert_alpha()
 
@@ -194,11 +196,6 @@ def main() -> None:
         lives_text = font.render(f"Lives: {lives - 1}", True, WHITE)
         screen.blit(score_text, (10, 10))
         screen.blit(lives_text, (GRID_WIDTH * GRID_SIZE - 100, 10))
-
-        # Send data
-        client_socket.sendto(b"PACMAN", client_address)
-
-        # Receive data
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -215,19 +212,42 @@ def main() -> None:
                     current_direction = "RIGHT"
 
         if current_direction:
-            try:
-                #move_pacman()
-                pass
-            except Exception as e:
-                run = False
-                pygame.quit()
-                raise e
+            # try:
+            #     #move_pacman()
+            #     pass
+            # except Exception as e:
+            #     run = False
+            #     pygame.quit()
+            #     raise e
             move_ghost(current_direction, screen)
+
+        direction = 0
+        if current_direction == "UP":
+            direction = 1
+        elif current_direction == "DOWN":
+            direction = 2
+        elif current_direction == "LEFT":
+            direction = 3
+        elif current_direction == "RIGHT":
+            direction = 4
+
+        # Send data
+        client_socket.sendto(b"PACMAN", client2_addr)
+        # Receive data
+        data, addr = client_socket.recvfrom(1024)
+        print(data, "from", addr)
+
+        # packet_type = 1 # 1 means position
+        # client_id = 1 # send to ghost2
+        # packet = struct.pack("BBB", client_id, packet_type, direction)
+        # client_socket.sendto(packet, client2_addr)
+        # # Receive data
+        # data, addr = client_socket.recvfrom(1024)
+        # print("Received:", data)
 
         draw_maze(screen, ghost1, pacman)
         pygame.display.flip()
         clock.tick(2)
-
 
 if __name__ == "__main__":
     main()

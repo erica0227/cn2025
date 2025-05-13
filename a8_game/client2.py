@@ -2,7 +2,8 @@ import socket
 import pygame
 import queue
 import copy
-from map2 import grid
+import struct
+from map1 import grid
 
 # Constants
 GRID_WIDTH = len(grid[0])
@@ -18,32 +19,34 @@ lives = 3
 score = 0
 game_over = False
 current_direction = None
+ghost1_position = None
 pacman_pos = ()
-ghost_pos = ()
+ghost1_pos = ()
+ghost2_pos = ()
 ghost_positions = []
 for row_idx, row in enumerate(grid):
     for col_idx, cell in enumerate(row):
         if cell == 2:
             pacman_pos = (row_idx, col_idx)
         elif cell == 3:
-            ghost_pos = (row_idx, col_idx)
+            ghost2_pos = (row_idx, col_idx)
             ghost_positions.append((row_idx, col_idx))
             # print(ghost_positions)
 
 # Get Pac-Man & Ghost positions
 def get_positions() -> None:
-    global pacman_pos, ghost_pos, ghost_positions
+    global pacman_pos, ghost2_pos, ghost_positions
     for row_idx, row in enumerate(grid):
         for col_idx, cell in enumerate(row):
             if cell == 2:
                 pacman_pos = (row_idx, col_idx)
             elif cell == 3:
-                ghost_pos = (row_idx, col_idx)
+                ghost2_pos = (row_idx, col_idx)
                 ghost_positions.append((row_idx, col_idx))
 
 def move_ghost(direction, screen) -> None:
-    global ghost_pos
-    row, col = ghost_pos
+    global ghost2_pos
+    row, col = ghost2_pos
     new_row, new_col = row, col
     if direction == "UP":
         new_row -= 1
@@ -57,18 +60,17 @@ def move_ghost(direction, screen) -> None:
     if grid[new_row][new_col] != 1:
         grid[row][col] = 0  # Clear old position
         grid[new_row][new_col] = 3  # Move ghost
-        ghost_pos = (new_row, new_col)
+        ghost2_pos = (new_row, new_col)
 
     check_collision(screen)
     move_pacman(screen)
 
-# The function for moving pacman
 def move_pacman(screen) -> None:
     global pacman_pos
 
     print("Pacman moved")
     print("Pacman position:", pacman_pos)
-    print("ghost position:", ghost_pos)
+    print("ghost position:", ghost2_pos)
     direction = bfs_alg()
 
     print("Pacman position:", pacman_pos)
@@ -77,8 +79,8 @@ def move_pacman(screen) -> None:
     check_collision(screen)
 
 def check_collision(screen):
-    global lives, pacman_pos, ghost_pos, ghost_positions, current_direction
-    if ghost_pos == pacman_pos:
+    global lives, pacman_pos, ghost2_pos, ghost2_positions, current_direction
+    if ghost2_pos == pacman_pos:
         lives -= 1
         if lives > 0:
             display_message(screen, "You lost a life!", RED)
@@ -89,14 +91,14 @@ def check_collision(screen):
 
         # Reset Pac-Man position and update the maze immediately
         grid[pacman_pos[0]][pacman_pos[1]] = 0
-        grid[ghost_pos[0]][ghost_pos[1]] = 0
+        grid[ghost2_pos[0]][ghost2_pos[1]] = 0
 
         # Now reset logical positions
-        ghost_pos = (1, 13)
+        ghost2_pos = (1, 13)
         pacman_pos = (7, 7)
 
         # Now update grid to show new positions
-        grid[ghost_pos[0]][ghost_pos[1]] = 3
+        grid[ghost2_pos[0]][ghost2_pos[1]] = 3
         grid[pacman_pos[0]][pacman_pos[1]] = 2
         current_direction = None
 
@@ -109,25 +111,25 @@ def display_message(screen, message, color = WHITE):
     pygame.time.delay(2000)
 
 def draw_maze(screen, ghost1, pacman) -> None:
-    global ghost_pos, ghost_positions
+    global ghost2_pos, ghost_positions
     for row_idx, row in enumerate(grid):
         for col_idx, cell in enumerate(row):
             x, y = col_idx * GRID_SIZE, row_idx * GRID_SIZE
             if cell == 1:
                 pygame.draw.rect(screen, BLUE, (x, y, GRID_SIZE, GRID_SIZE))
             elif cell == 3:
-                screen.blit(ghost1, (ghost_pos[1] * GRID_SIZE, ghost_pos[0] * GRID_SIZE))
+                screen.blit(ghost1, (ghost2_pos[1] * GRID_SIZE, ghost2_pos[0] * GRID_SIZE))
             elif cell == 2:
                 screen.blit(pacman, (pacman_pos[1] * GRID_SIZE, pacman_pos[0] * GRID_SIZE))
 
 def tuple_add(t1: tuple[int, int], t2: tuple[int, int]) -> tuple[int, int]:
     return t1[0] + t2[0], t1[1] + t2[1]
+
 def inverse_tuple(t1: tuple[int, int]) -> tuple[int, int]:
     return -t1[0], -t1[1]
 
-
 def bfs_alg():
-    global pacman_pos, ghost_pos, ghost_positions
+    global pacman_pos, ghost2_pos, ghost_positions
     visit_grid = copy.deepcopy(grid)  # deep copy
     directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
     q = queue.Queue()
@@ -151,7 +153,7 @@ def bfs_alg():
                         visit_grid[r][c] = counter
                         visited.add(next_pos)
                         q.put(next_pos)
-                    elif (r, c) == tuple(ghost_pos):
+                    elif (r, c) == tuple(ghost2_pos):
                         visit_grid[r][c] = counter
                         ghost_position = (r, c)
                         ghost_found = True
@@ -174,19 +176,22 @@ def bfs_alg():
                         return inverse_tuple(d)
                     break
 
-
 def main() -> None:
-    global current_direction
+    global current_direction, ghost1_position
+    client1_addr = ("0.0.0.0", 12345)
+    client2_addr = ("0.0.0.0", 12346)
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    client_socket.bind(client1_addr)
+
     pygame.init()
     screen = pygame.display.set_mode((GRID_WIDTH * GRID_SIZE, GRID_HEIGHT * GRID_SIZE))
-    pygame.display.set_caption("pacman")
+    pygame.display.set_caption("pacman2")
     pacman = pygame.image.load('images/pacman.png').convert_alpha()
     ghost1 = pygame.image.load('images/ghost1.png').convert_alpha()
 
     run = True
     while run:
         screen.fill(BLACK)
-
         clock = pygame.time.Clock()
         font = pygame.font.Font(None, 36)
         score_text = font.render(f"Score: {score}", True, WHITE)
@@ -209,22 +214,72 @@ def main() -> None:
                     current_direction = "RIGHT"
 
         if current_direction:
-            try:
-                #move_pacman()
-                pass
-            except Exception as e:
-                run = False
-                pygame.quit()
-                raise e
+            # try:
+            #     #move_pacman()
+            #     pass
+            # except Exception as e:
+            #     run = False
+            #     pygame.quit()
+            #     raise e
             move_ghost(current_direction, screen)
+
+        direction = 0
+        if current_direction == "UP":
+            direction = 1
+        elif current_direction == "DOWN":
+            direction = 2
+        elif current_direction == "LEFT":
+            direction = 3
+        elif current_direction == "RIGHT":
+            direction = 4
+
+        # Send data
+        client_socket.sendto(b"PACMAN", client1_addr)
+        # Receive data
+        data, addr = client_socket.recvfrom(1024)
+        print(data, "from", addr)
+
+        # # Send data
+        # packet_type = 1 # 1 means position
+        # client_id = 2 # send to ghost2
+        # packet = struct.pack("BBB", client_id, packet_type, direction)
+        # client_socket.sendto(packet, client2_addr)
+        # # Receive data
+        # data, addr = client_socket.recvfrom(1024)
+        # if len(data) == 3 and addr == client2_addr:
+        #     client_id, packet_type, direction = struct.unpack("BBB", data)
+        #     print("Received:", client_id, packet_type, direction)
+        #
+        # if client_id == 1:
+        #     if packet_type == 1:
+        #         if direction == 1:
+        #             ghost1_position = "UP"
+        #         elif direction == 2:
+        #             ghost1_position = "DOWN"
+        #         elif direction == 3:
+        #             ghost1_position = "LEFT"
+        #         elif direction == 4:
+        #             ghost1_position = "RIGHT"
 
         draw_maze(screen, ghost1, pacman)
         pygame.display.flip()
         clock.tick(2)
 
-
 if __name__ == "__main__":
     main()
+
+# client_port = ("0.0.0.0", 5378)
+# listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+# listen_socket.bind(client_port)
+# listen_socket.listen()
+# print(f"Listening on {client_port}")
+# while True:
+#     client_socket, client_addr = listen_socket.accept()
+#     receive_msg = client_socket.recv(4096).decode("utf-8")
+#     if receive_msg.startswith("HELLO"):
+#         break
+# print(receive_msg)
 
 # import pygame
 # import socket
