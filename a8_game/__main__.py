@@ -1,7 +1,7 @@
 import pygame
 import queue
 import copy
-from map import grid
+from map1 import grid
 
 # Constants
 GRID_WIDTH = len(grid[0])
