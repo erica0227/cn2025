@@ -239,7 +239,7 @@ def main() -> None:
         packet_type_send = 1 # 1 means position
         client_id_send = 1 # send to ghost2
         packet = struct.pack("BBB", client_id_send, packet_type_send, direction_send)
-        client_socket.sendto(packet, client2_addr)
+        client_socket.sendto(packet, client1_addr)
         # Receive data
         readlist, _, _ = select.select(client_sockets, [], [], 0.1)
         for sock in readlist:
@@ -251,7 +251,7 @@ def main() -> None:
             except socket.timeout:
                 pass
 
-        # if client_id == 1:
+        # if client_id_rev == 1:
         #     if packet_type == 1:
         #         if direction == 1:
         #             ghost1_position = "UP"
