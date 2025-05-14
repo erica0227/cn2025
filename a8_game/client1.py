@@ -20,34 +20,32 @@ lives = 3
 score = 0
 game_over = False
 current_direction = None
-client_id_recv = None
-packet_type_recv = None
+client_id_recv = 0
+packet_type_recv = 0
+ghost1_direction = None
 pacman_pos = ()
-ghost_pos = ()
+ghost1_pos = ()
+ghost2_pos = ()
+ghost1_start = ()
+ghost2_start = ()
 ghost_positions = []
 for row_idx, row in enumerate(grid):
     for col_idx, cell in enumerate(row):
         if cell == 2:
             pacman_pos = (row_idx, col_idx)
         elif cell == 3:
-            ghost_pos = (row_idx, col_idx)
-            ghost_positions.append((row_idx, col_idx))
+            ghost1_start = (row_idx, col_idx)
+            ghost1_pos = (ghost1_start)
+            ghost_positions.append(ghost1_pos)
+        elif cell == 4:
+            ghost2_start = (row_idx, col_idx)
+            ghost2_pos = ghost2_start
+            ghost_positions.append(ghost2_pos)
             # print(ghost_positions)
 
-# Get Pac-Man & Ghost positions
-def get_positions() -> None:
-    global pacman_pos, ghost_pos, ghost_positions
-    for row_idx, row in enumerate(grid):
-        for col_idx, cell in enumerate(row):
-            if cell == 2:
-                pacman_pos = (row_idx, col_idx)
-            elif cell == 3:
-                ghost_pos = (row_idx, col_idx)
-                ghost_positions.append((row_idx, col_idx))
-
 def move_ghost(direction, screen) -> None:
-    global ghost_pos
-    row, col = ghost_pos
+    global ghost1_pos
+    row, col = ghost1_pos
     new_row, new_col = row, col
     if direction == "UP":
         new_row -= 1
@@ -61,7 +59,7 @@ def move_ghost(direction, screen) -> None:
     if grid[new_row][new_col] != 1:
         grid[row][col] = 0  # Clear old position
         grid[new_row][new_col] = 3  # Move ghost
-        ghost_pos = (new_row, new_col)
+        ghost1_pos = (new_row, new_col)
 
     check_collision(screen)
     move_pacman(screen)
@@ -71,7 +69,7 @@ def move_pacman(screen) -> None:
 
     print("Pacman moved")
     print("Pacman position:", pacman_pos)
-    # print("ghost position:", ghost_pos)
+    # print("ghost position:", ghost1_pos)
     direction = bfs_alg()
 
     # print("Pacman position:", pacman_pos)
@@ -80,8 +78,8 @@ def move_pacman(screen) -> None:
     check_collision(screen)
 
 def check_collision(screen):
-    global lives, pacman_pos, ghost_pos, ghost_positions, current_direction
-    if ghost_pos == pacman_pos:
+    global lives, pacman_pos, ghost1_pos, ghost_positions, current_direction
+    if ghost1_pos == pacman_pos:
         lives -= 1
         if lives > 0:
             display_message(screen, "You lost a life!", RED)
@@ -92,14 +90,14 @@ def check_collision(screen):
 
         # Reset Pac-Man position and update the maze immediately
         grid[pacman_pos[0]][pacman_pos[1]] = 0
-        grid[ghost_pos[0]][ghost_pos[1]] = 0
+        grid[ghost1_pos[0]][ghost1_pos[1]] = 0
 
         # Now reset logical positions
-        ghost_pos = (1, 13)
+        ghost1_pos = ghost1_start
         pacman_pos = (7, 7)
 
         # Now update grid to show new positions
-        grid[ghost_pos[0]][ghost_pos[1]] = 3
+        grid[ghost1_pos[0]][ghost1_pos[1]] = 3
         grid[pacman_pos[0]][pacman_pos[1]] = 2
         current_direction = None
 
@@ -111,17 +109,19 @@ def display_message(screen, message, color = WHITE):
     pygame.display.flip()
     pygame.time.delay(2000)
 
-def draw_maze(screen, ghost1, pacman) -> None:
-    global ghost_pos, ghost_positions
+def draw_maze(screen, ghost1, ghost2, pacman) -> None:
+    global ghost1_pos, ghost_positions
     for row_idx, row in enumerate(grid):
         for col_idx, cell in enumerate(row):
             x, y = col_idx * GRID_SIZE, row_idx * GRID_SIZE
             if cell == 1:
                 pygame.draw.rect(screen, BLUE, (x, y, GRID_SIZE, GRID_SIZE))
-            elif cell == 3:
-                screen.blit(ghost1, (ghost_pos[1] * GRID_SIZE, ghost_pos[0] * GRID_SIZE))
             elif cell == 2:
                 screen.blit(pacman, (pacman_pos[1] * GRID_SIZE, pacman_pos[0] * GRID_SIZE))
+            elif cell == 3:
+                screen.blit(ghost1, (ghost1_pos[1] * GRID_SIZE, ghost1_pos[0] * GRID_SIZE))
+            elif cell == 4:
+                screen.blit(ghost2, (ghost2_pos[1] * GRID_SIZE, ghost2_pos[0] * GRID_SIZE))
 
 def tuple_add(t1: tuple[int, int], t2: tuple[int, int]) -> tuple[int, int]:
     return t1[0] + t2[0], t1[1] + t2[1]
@@ -130,7 +130,7 @@ def inverse_tuple(t1: tuple[int, int]) -> tuple[int, int]:
     return -t1[0], -t1[1]
 
 def bfs_alg():
-    global pacman_pos, ghost_pos, ghost_positions
+    global pacman_pos, ghost1_pos, ghost_positions
     visit_grid = copy.deepcopy(grid)  # deep copy
     directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
     q = queue.Queue()
@@ -154,7 +154,7 @@ def bfs_alg():
                         visit_grid[r][c] = counter
                         visited.add(next_pos)
                         q.put(next_pos)
-                    elif (r, c) == tuple(ghost_pos):
+                    elif (r, c) == tuple(ghost1_pos):
                         visit_grid[r][c] = counter
                         ghost_position = (r, c)
                         ghost_found = True
@@ -190,6 +190,7 @@ def main() -> None:
     pygame.display.set_caption("pacman1")
     pacman = pygame.image.load('images/pacman.png').convert_alpha()
     ghost1 = pygame.image.load('images/ghost1.png').convert_alpha()
+    ghost2 = pygame.image.load('images/ghost2.png').convert_alpha()
 
     run = True
     while run:
@@ -265,7 +266,7 @@ def main() -> None:
             except socket.timeout:
                 pass
 
-        draw_maze(screen, ghost1, pacman)
+        draw_maze(screen, ghost1, ghost2, pacman)
         pygame.display.flip()
         clock.tick(2)
 
