@@ -3,7 +3,7 @@ import socket
 import select
 import queue
 import json
-from map1 import grid
+from map import grid
 
 # Constants
 GRID_WIDTH = len(grid[0])
