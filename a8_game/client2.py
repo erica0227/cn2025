@@ -197,18 +197,18 @@ def bfs_alg():
 
 def main() -> None:
     global current_direction, ghost1_direction, client_id_recv
-    client1_addr = ("0.0.0.0", 12345)
-    client2_addr = ("0.0.0.0", 12346)
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    client_socket.bind(client2_addr)
-    client_sockets = [client_socket]
-
     pygame.init()
     screen = pygame.display.set_mode((GRID_WIDTH * GRID_SIZE, GRID_HEIGHT * GRID_SIZE))
     pygame.display.set_caption("pacman2")
     pacman = pygame.image.load('images/pacman.png').convert_alpha()
     ghost1 = pygame.image.load('images/ghost1.png').convert_alpha()
     ghost2 = pygame.image.load('images/ghost2.png').convert_alpha()
+
+    client1_addr = ("0.0.0.0", 12345)
+    client2_addr = ("0.0.0.0", 12346)
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    client_socket.bind(client2_addr)
+    client_sockets = [client_socket]
 
     run = True
     while run:
@@ -235,13 +235,6 @@ def main() -> None:
                     current_direction = "RIGHT"
 
         if current_direction:
-            # try:
-            #     #move_pacman()
-            #     pass
-            # except Exception as e:
-            #     run = False
-            #     pygame.quit()
-            #     raise e
             move_ghost(current_direction, screen)
 
         direction_send = 0
@@ -259,16 +252,15 @@ def main() -> None:
         client_id_send = 1 # send to ghost2
         packet = struct.pack("BBB", client_id_send, packet_type_send, direction_send)
         client_socket.sendto(packet, client1_addr)
-        # Receive data
-        readlist, _, _ = select.select(client_sockets, [], [], 0.1)
-        for sock in readlist:
-            try:
-                data, addr = sock.recvfrom(1024)
-                print(data, "from", addr)
-                client_id_recv, packet_type_recv, direction = struct.unpack("BBB", data)
-                print("Received:", client_id_recv, packet_type_recv, direction)
-            except socket.timeout:
-                pass
+        # Recv data
+        client_socket.setblocking(False)
+        try:
+            data, addr = client_socket.recvfrom(1024)
+            print(data, "from", addr)
+            client_id_recv, packet_type_recv, direction = struct.unpack("BBB", data)
+            print("Received:", client_id_recv, packet_type_recv, direction)
+        except BlockingIOError:
+            pass
 
         if client_id_recv == 2:
             if packet_type_recv == 1:
@@ -281,8 +273,7 @@ def main() -> None:
                         ghost1_direction = "LEFT"
                     elif direction == 4:
                         ghost1_direction = "RIGHT"
-
-                    move_ghosts(ghost1_direction, screen)
+        move_ghosts(ghost1_direction, screen)
 
         draw_maze(screen, ghost1, ghost2, pacman)
         pygame.display.flip()

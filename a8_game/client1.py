@@ -20,6 +20,8 @@ lives = 3
 score = 0
 game_over = False
 current_direction = None
+last_direction = None
+direction_send = 0
 client_id_recv = 0
 packet_type_recv = 0
 ghost1_direction = None
@@ -100,6 +102,7 @@ def check_collision(screen):
         grid[ghost1_pos[0]][ghost1_pos[1]] = 3
         grid[pacman_pos[0]][pacman_pos[1]] = 2
         current_direction = None
+        last_direction = None
 
 def display_message(screen, message, color = WHITE):
     font = pygame.font.Font(None, 50)
@@ -178,19 +181,19 @@ def bfs_alg():
                     break
 
 def main() -> None:
-    client1_addr = ("0.0.0.0", 12345)
-    client2_addr = ("0.0.0.0", 12346)
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    client_socket.bind(client1_addr)
-    client_sockets = [client_socket]
-
-    global current_direction, client_id_recv, packet_type_recv
+    global current_direction, last_direction, direction_send, client_id_recv, packet_type_recv
     pygame.init()
     screen = pygame.display.set_mode((GRID_WIDTH * GRID_SIZE, GRID_HEIGHT * GRID_SIZE))
     pygame.display.set_caption("pacman1")
     pacman = pygame.image.load('images/pacman.png').convert_alpha()
     ghost1 = pygame.image.load('images/ghost1.png').convert_alpha()
     ghost2 = pygame.image.load('images/ghost2.png').convert_alpha()
+
+    client1_addr = ("0.0.0.0", 12345)
+    client2_addr = ("0.0.0.0", 12346)
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    client_socket.bind(client1_addr)
+    client_sockets = [client_socket]
 
     run = True
     while run:
@@ -217,54 +220,38 @@ def main() -> None:
                     current_direction = "RIGHT"
 
         if current_direction:
-            # try:
-            #     #move_pacman()
-            #     pass
-            # except Exception as e:
-            #     run = False
-            #     pygame.quit()
-            #     raise e
             move_ghost(current_direction, screen)
 
-        direction_send = 0
-        if current_direction == "UP":
-            direction_send = 1
-        elif current_direction == "DOWN":
-            direction_send = 2
-        elif current_direction == "LEFT":
-            direction_send = 3
-        elif current_direction == "RIGHT":
-            direction_send = 4
+        # Interest management
+        if current_direction != last_direction and current_direction != None:
+            print("current direction:", current_direction)
+            print("last direction:", last_direction)
+            if current_direction == "UP":
+                direction_send = 1
+            elif current_direction == "DOWN":
+                direction_send = 2
+            elif current_direction == "LEFT":
+                direction_send = 3
+            elif current_direction == "RIGHT":
+                direction_send = 4
+            last_direction = current_direction
 
-        # # Send data
-        # client_socket.sendto(b"PACMAN", client2_addr)
-        # # Receive data
-        # data, addr = client_socket.recvfrom(1024)
-        # print(data, "from", addr)
+            # Send direction data
+            packet_type_send = 1 # 1 means position
+            client_id_send = 2 # send to ghost2
+            packet = struct.pack("BBB", client_id_send, packet_type_send, direction_send)
+            client_socket.sendto(packet, client2_addr)
+            print("sent packet:", packet)
 
-        # packet_type = 1 # 1 means position
-        # client_id = 1 # send to ghost2
-        # packet = struct.pack("BBB", client_id, packet_type, direction)
-        # client_socket.sendto(packet, client2_addr)
-        # # Receive data
-        # data, addr = client_socket.recvfrom(1024)
-        # print("Received:", data)
-
-        # Send data
-        packet_type_send = 1 # 1 means position
-        client_id_send = 2 # send to ghost2
-        packet = struct.pack("BBB", client_id_send, packet_type_send, direction_send)
-        client_socket.sendto(packet, client2_addr)
-        # Receive data
-        readlist, _, _ = select.select(client_sockets, [], [], 0.1)
-        for sock in readlist:
-            try:
-                data, addr = sock.recvfrom(1024)
-                print(data, "from", addr)
-                client_id_recv, packet_type_recv, direction = struct.unpack("BBB", data)
-                print("Received:", client_id_recv, packet_type_recv, direction)
-            except socket.timeout:
-                pass
+        # Recv direction data
+        client_socket.setblocking(False)
+        try:
+            data, addr = client_socket.recvfrom(1024)
+            print(data, "from", addr)
+            client_id_recv, packet_type_recv, direction = struct.unpack("BBB", data)
+            print("Received:", client_id_recv, packet_type_recv, direction)
+        except BlockingIOError:
+            pass
 
         draw_maze(screen, ghost1, ghost2, pacman)
         pygame.display.flip()
@@ -272,16 +259,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-# client_port = ("0.0.0.0", 5378)
-# listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-# listen_socket.bind(client_port)
-# listen_socket.listen()
-# print(f"Listening on {client_port}")
-# while True:
-#     client_socket, client_addr = listen_socket.accept()
-#     receive_msg = client_socket.recv(4096).decode("utf-8")
-#     if receive_msg.startswith("HELLO"):
-#         break
-# print(receive_msg)
