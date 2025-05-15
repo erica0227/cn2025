@@ -16,7 +16,7 @@ BLUE = (0, 0, 255)
 RED = (255, 0, 0)
 WHITE = (255, 255, 255)
 
-current_ghost = 2
+current_ghost = 3
 ghosts = {
     1: {"pos": (1, 1), "start": (1, 1), "cell": 3, "direction": None, "seq": 0, "skip_frame": False, "alive": True},
     2: {"pos": (1, 13), "start": (1, 13), "cell": 4, "direction": None, "seq": 0, "skip_frame": False, "alive": True},
@@ -47,7 +47,7 @@ def move_ghost(ghost_id, direction, screen, clients, client_socket) -> None:
     elif direction == "RIGHT":
         new_col += 1
 
-    if grid[new_row][new_col] != 1 and grid[new_row][new_col] != 3 and grid[new_row][new_col] != 5:
+    if grid[new_row][new_col] != 1 and grid[new_row][new_col] != 3 and grid[new_row][new_col] != 4:
         grid[row][col] = 0  # Clear old position
         grid[new_row][new_col] = ghost["cell"]  # Move ghost
         ghost["pos"] = (new_row, new_col)
@@ -190,7 +190,7 @@ def main() -> None:
     last_direction_time = time.time()
     pygame.init()
     screen = pygame.display.set_mode((GRID_WIDTH * GRID_SIZE, GRID_HEIGHT * GRID_SIZE))
-    pygame.display.set_caption("pacman2")
+    pygame.display.set_caption("pacman3")
     pacman = pygame.image.load('images/pacman.png').convert_alpha()
     ghost1 = pygame.image.load('images/ghost1.png').convert_alpha()
     ghost2 = pygame.image.load('images/ghost2.png').convert_alpha()
@@ -292,7 +292,9 @@ def main() -> None:
         if ghosts[1]["skip_frame"] is False:
             move_ghost(1, ghosts[1]["direction"], screen, clients, client_socket)
         ghosts[1]["skip_frame"] = False
-        # move_ghost(3, ghosts[3]["direction"], screen)
+        if ghosts[2]["skip_frame"] is False:
+            move_ghost(2, ghosts[2]["direction"], screen, clients, client_socket)
+        ghosts[2]["skip_frame"] = False
 
         # Interest management & Delta compressions
         if current_direction != last_direction and current_direction != None:

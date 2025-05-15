@@ -292,7 +292,9 @@ def main() -> None:
         if ghosts[1]["skip_frame"] is False:
             move_ghost(1, ghosts[1]["direction"], screen, clients, client_socket)
         ghosts[1]["skip_frame"] = False
-        # move_ghost(3, ghosts[3]["direction"], screen)
+        if ghosts[3]["skip_frame"] is False:
+            move_ghost(3, ghosts[3]["direction"], screen, clients, client_socket)
+        ghosts[3]["skip_frame"] = False
 
         # Interest management & Delta compressions
         if current_direction != last_direction and current_direction != None:
