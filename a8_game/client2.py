@@ -20,7 +20,8 @@ current_ghost = 2
 ghosts = {
     1: {"pos": (1, 1), "start": (1, 1), "cell": 3, "direction": None, "seq": 0, "skip_frame": False, "alive": True},
     2: {"pos": (1, 13), "start": (1, 13), "cell": 4, "direction": None, "seq": 0, "skip_frame": False, "alive": True},
-    3: {"pos": (13, 1), "start": (13, 1), "cell": 5, "direction": None, "seq": 0, "skip_frame": False, "alive": True}
+    3: {"pos": (13, 1), "start": (13, 1), "cell": 5, "direction": None, "seq": 0, "skip_frame": False, "alive": True},
+    4: {"pos": (13, 13), "start": (13, 13), "cell": 6, "direction": None, "seq": 0, "skip_frame": False, "alive": True}
 }
 
 # Initialize game variables
@@ -114,7 +115,7 @@ def display_message(screen, message, color = WHITE):
     pygame.display.flip()
     # pygame.time.delay(2000)
 
-def draw_maze(screen, ghost1, ghost2, ghost3, pacman) -> None:
+def draw_maze(screen, ghost1, ghost2, ghost3, ghost4, pacman) -> None:
     for row_idx, row in enumerate(grid):
         for col_idx, cell in enumerate(row):
             x, y = col_idx * GRID_SIZE, row_idx * GRID_SIZE
@@ -128,6 +129,8 @@ def draw_maze(screen, ghost1, ghost2, ghost3, pacman) -> None:
                 screen.blit(ghost2, (ghosts[2]["pos"][1] * GRID_SIZE, ghosts[2]["pos"][0] * GRID_SIZE))
             elif cell == 5:
                 screen.blit(ghost3, (ghosts[3]["pos"][1] * GRID_SIZE, ghosts[3]["pos"][0] * GRID_SIZE))
+            elif cell == 6:
+                screen.blit(ghost4, (ghosts[4]["pos"][1] * GRID_SIZE, ghosts[4]["pos"][0] * GRID_SIZE))
 
 def tuple_add(t1: tuple[int, int], t2: tuple[int, int]) -> tuple[int, int]:
     return t1[0] + t2[0], t1[1] + t2[1]
@@ -144,8 +147,8 @@ def bfs_alg(ghost_id):
     q.put(pacman_pos)
     visited = set()
     visited.add(pacman_pos)
-    visit_grid[pacman_pos[0]][pacman_pos[1]] = 6  # mark start
-    counter = 7
+    visit_grid[pacman_pos[0]][pacman_pos[1]] = 7  # mark start
+    counter = 8
     ghost_found = False
     ghost_position = None
 
@@ -195,6 +198,7 @@ def main() -> None:
     ghost1 = pygame.image.load('images/ghost1.png').convert_alpha()
     ghost2 = pygame.image.load('images/ghost2.png').convert_alpha()
     ghost3 = pygame.image.load('images/ghost3.png').convert_alpha()
+    ghost4 = pygame.image.load('images/ghost4.png').convert_alpha()
 
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     client_socket.bind(("0.0.0.0", 0))
@@ -322,23 +326,23 @@ def main() -> None:
                 client_socket.sendto(packet, client)
                 print(f"Sent packet to {client}: {packet}")
 
-        # if time.time() - last_sync >= 2:
-        #     ghost = ghosts[current_ghost]
-        #     ghost["seq"] += 1
-        #     seq = ghost["seq"]
-        #     ghost_id = current_ghost
-        #     row, col = ghost["pos"]
-        #     packet_type = 2  # 2 for sync
-        #     packet = struct.pack("BBBBB", ghost_id, packet_type, row, col, seq)
-        #     print("packet:", packet)
-        #     for client in clients:
-        #         client_socket.sendto(packet, client)
-        #         print(f"Sent sync to {client}: {packet}")
-        #     last_sync = time.time()
+        if time.time() - last_sync >= 2:
+            ghost = ghosts[current_ghost]
+            ghost["seq"] += 1
+            seq = ghost["seq"]
+            ghost_id = current_ghost
+            row, col = ghost["pos"]
+            packet_type = 2  # 2 for sync
+            packet = struct.pack("BBBBB", ghost_id, packet_type, row, col, seq)
+            print("packet:", packet)
+            for client in clients:
+                client_socket.sendto(packet, client)
+                print(f"Sent sync to {client}: {packet}")
+            last_sync = time.time()
 
-        draw_maze(screen, ghost1, ghost2, ghost3, pacman)
+        draw_maze(screen, ghost1, ghost2, ghost3, ghost4, pacman)
         pygame.display.flip()
-        clock.tick(2)
+        clock.tick(1)
 
 if __name__ == "__main__":
     main()

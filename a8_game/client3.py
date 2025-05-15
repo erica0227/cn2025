@@ -20,7 +20,8 @@ current_ghost = 3
 ghosts = {
     1: {"pos": (1, 1), "start": (1, 1), "cell": 3, "direction": None, "seq": 0, "skip_frame": False, "alive": True},
     2: {"pos": (1, 13), "start": (1, 13), "cell": 4, "direction": None, "seq": 0, "skip_frame": False, "alive": True},
-    3: {"pos": (13, 1), "start": (13, 1), "cell": 5, "direction": None, "seq": 0, "skip_frame": False, "alive": True}
+    3: {"pos": (13, 1), "start": (13, 1), "cell": 5, "direction": None, "seq": 0, "skip_frame": False, "alive": True},
+    4: {"pos": (13, 13), "start": (13, 13), "cell": 6, "direction": None, "seq": 0, "skip_frame": False, "alive": True}
 }
 
 # Initialize game variables
@@ -114,7 +115,7 @@ def display_message(screen, message, color = WHITE):
     pygame.display.flip()
     # pygame.time.delay(2000)
 
-def draw_maze(screen, ghost1, ghost2, ghost3, pacman) -> None:
+def draw_maze(screen, ghost1, ghost2, ghost3, ghost4, pacman) -> None:
     for row_idx, row in enumerate(grid):
         for col_idx, cell in enumerate(row):
             x, y = col_idx * GRID_SIZE, row_idx * GRID_SIZE
@@ -128,6 +129,8 @@ def draw_maze(screen, ghost1, ghost2, ghost3, pacman) -> None:
                 screen.blit(ghost2, (ghosts[2]["pos"][1] * GRID_SIZE, ghosts[2]["pos"][0] * GRID_SIZE))
             elif cell == 5:
                 screen.blit(ghost3, (ghosts[3]["pos"][1] * GRID_SIZE, ghosts[3]["pos"][0] * GRID_SIZE))
+            elif cell == 6:
+                screen.blit(ghost4, (ghosts[4]["pos"][1] * GRID_SIZE, ghosts[4]["pos"][0] * GRID_SIZE))
 
 def tuple_add(t1: tuple[int, int], t2: tuple[int, int]) -> tuple[int, int]:
     return t1[0] + t2[0], t1[1] + t2[1]
@@ -195,9 +198,10 @@ def main() -> None:
     ghost1 = pygame.image.load('images/ghost1.png').convert_alpha()
     ghost2 = pygame.image.load('images/ghost2.png').convert_alpha()
     ghost3 = pygame.image.load('images/ghost3.png').convert_alpha()
+    ghost4 = pygame.image.load('images/ghost4.png').convert_alpha()
 
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    client_socket.bind(("0.0.0.0", 0))
+    client_socket.bind(("0.0.0.0", 1))
     print(f"[+] Listening on {client_socket.getsockname()} (IP, port)")
     client_sockets = [client_socket]
     clients = set()
@@ -336,7 +340,7 @@ def main() -> None:
         #         print(f"Sent sync to {client}: {packet}")
         #     last_sync = time.time()
 
-        draw_maze(screen, ghost1, ghost2, ghost3, pacman)
+        draw_maze(screen, ghost1, ghost2, ghost3, ghost4, pacman)
         pygame.display.flip()
         clock.tick(2)
 
