@@ -5,9 +5,8 @@ import queue
 import copy
 import struct
 import time
-import os
-from .map import grid
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+from map import grid
+
 # Constants
 GRID_WIDTH = len(grid[0])
 GRID_HEIGHT = len(grid)
@@ -26,7 +25,7 @@ ghosts = {
 }
 
 # Initialize game variables
-lives = 100
+lives = 3
 score = 0
 game_over = False
 current_direction = None
@@ -187,7 +186,7 @@ def bfs_alg(ghost_id):
                         return inverse_tuple(d)
                     break
 
-def main(server_socket: socket, clients: list) -> None:
+def main() -> None:
     start_flag = None
     start_flag = input("Press start flag: ")
     global current_direction, last_direction, direction_send, client_id_recv, packet_type_recv, last_sync
@@ -196,13 +195,21 @@ def main(server_socket: socket, clients: list) -> None:
     pygame.init()
     screen = pygame.display.set_mode((GRID_WIDTH * GRID_SIZE, GRID_HEIGHT * GRID_SIZE))
     pygame.display.set_caption("pacman3")
-    pacman = pygame.image.load(os.path.join(BASE_DIR, 'images/pacman.png')).convert_alpha()
-    ghost1 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost1.png')).convert_alpha()
-    ghost2 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost2.png')).convert_alpha()
-    ghost3 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost3.png')).convert_alpha()
-    ghost4 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost4.png')).convert_alpha()
+    pacman = pygame.image.load('images/pacman.png').convert_alpha()
+    ghost1 = pygame.image.load('images/ghost1.png').convert_alpha()
+    ghost2 = pygame.image.load('images/ghost2.png').convert_alpha()
+    ghost3 = pygame.image.load('images/ghost3.png').convert_alpha()
+    ghost4 = pygame.image.load('images/ghost4.png').convert_alpha()
 
-    client_sockets = [server_socket]
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    client_socket.bind(("0.0.0.0", 0))
+    print(f"[+] Listening on {client_socket.getsockname()} (IP, port)")
+    client_sockets = [client_socket]
+    clients = set()
+    for i in range(10, 65535):
+        if i == client_socket.getsockname()[1]:
+            continue
+        client_socket.sendto(b"a", ("0.0.0.0", i))
 
     running = True
     while running:
@@ -229,9 +236,9 @@ def main(server_socket: socket, clients: list) -> None:
                     current_direction = "RIGHT"
         ghost_id = current_ghost
         if current_direction:
-            move_ghost(ghost_id, current_direction, screen, clients, server_socket)
+            move_ghost(ghost_id, current_direction, screen, clients, client_socket)
         if start_flag == "s":
-            move_pacman(ghost_id, screen, clients, server_socket)
+            move_pacman(ghost_id, screen, clients, client_socket)
 
         # Receive direction data
         readlist, _, _ = select.select(client_sockets, [], [], 0.1)

@@ -5,8 +5,9 @@ import queue
 import copy
 import struct
 import time
-from map import grid
-
+import os
+from .map import grid
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Constants
 GRID_WIDTH = len(grid[0])
 GRID_HEIGHT = len(grid)
@@ -25,7 +26,7 @@ ghosts = {
 }
 
 # Initialize game variables
-lives = 3
+lives = 100
 score = 0
 game_over = False
 current_direction = None
@@ -55,7 +56,6 @@ def move_ghost(ghost_id, direction, screen, clients, server_socket) -> None:
 
     if ghost_id == current_ghost:
         check_collision(ghost_id, screen, clients, server_socket)
-        move_pacman(ghost_id, screen, clients, server_socket)
 
 def move_pacman(ghost_id, screen, clients, server_socket) -> None:
     global pacman_pos
@@ -194,11 +194,11 @@ def main() -> None:
     pygame.init()
     screen = pygame.display.set_mode((GRID_WIDTH * GRID_SIZE, GRID_HEIGHT * GRID_SIZE))
     pygame.display.set_caption("pacman1")
-    pacman = pygame.image.load('images/pacman.png').convert_alpha()
-    ghost1 = pygame.image.load('images/ghost1.png').convert_alpha()
-    ghost2 = pygame.image.load('images/ghost2.png').convert_alpha()
-    ghost3 = pygame.image.load('images/ghost3.png').convert_alpha()
-    ghost4 = pygame.image.load('images/ghost4.png').convert_alpha()
+    pacman = pygame.image.load(os.path.join(BASE_DIR, 'images/pacman.png')).convert_alpha()
+    ghost1 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost1.png')).convert_alpha()
+    ghost2 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost2.png')).convert_alpha()
+    ghost3 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost3.png')).convert_alpha()
+    ghost4 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost4.png')).convert_alpha()
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server_socket.bind(('0.0.0.0', 0))
@@ -229,9 +229,11 @@ def main() -> None:
                     current_direction = "LEFT"
                 elif event.key == pygame.K_RIGHT:
                     current_direction = "RIGHT"
+        ghost_id = current_ghost
         if current_direction:
-            ghost_id = current_ghost
             move_ghost(ghost_id, current_direction, screen, clients, server_socket)
+        if start_flag == "s":
+            move_pacman(ghost_id, screen, clients, server_socket)
 
         # poll for incoming udp packets
         readlist, _, _ = select.select(client_sockets, [], [], 0.1)
@@ -320,23 +322,23 @@ def main() -> None:
                 server_socket.sendto(packet, client)
                 print(f"Sent packet to {client}: {packet}")
 
-        if time.time() - last_sync >= 2:
-            ghost = ghosts[current_ghost]
-            ghost["seq"] += 1
-            seq = ghost["seq"]
-            ghost_id = current_ghost
-            row, col = ghost["pos"]
-            packet_type = 2  # 2 for sync
-            packet = struct.pack("BBBBB", ghost_id, packet_type, row, col, seq)
-            print("packet:", packet)
-            for client in clients:
-                server_socket.sendto(packet, client)
-                print(f"Sent sync to {client}: {packet}")
-            last_sync = time.time()
+        # if time.time() - last_sync >= 2:
+        #     ghost = ghosts[current_ghost]
+        #     ghost["seq"] += 1
+        #     seq = ghost["seq"]
+        #     ghost_id = current_ghost
+        #     row, col = ghost["pos"]
+        #     packet_type = 2  # 2 for sync
+        #     packet = struct.pack("BBBBB", ghost_id, packet_type, row, col, seq)
+        #     print("packet:", packet)
+        #     for client in clients:
+        #         server_socket.sendto(packet, client)
+        #         print(f"Sent sync to {client}: {packet}")
+        #     last_sync = time.time()
 
         draw_maze(screen, ghost1, ghost2, ghost3, ghost4, pacman)
         pygame.display.flip()
-        clock.tick(1) # for adding the sync
+        clock.tick(2) # for adding the sync
 
 if __name__ == "__main__":
     main()

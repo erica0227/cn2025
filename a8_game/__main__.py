@@ -1,8 +1,6 @@
 import socket
 import select
 import pygame
-import queue
-import copy
 import struct
 from map import grid
 

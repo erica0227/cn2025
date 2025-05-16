@@ -4,9 +4,10 @@ import pygame
 import queue
 import copy
 import struct
+import os
 import time
-from map import grid
-
+from .map import grid
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Constants
 GRID_WIDTH = len(grid[0])
 GRID_HEIGHT = len(grid)
@@ -25,7 +26,7 @@ ghosts = {
 }
 
 # Initialize game variables
-lives = 3
+lives = 100
 score = 0
 game_over = False
 current_direction = None
@@ -48,14 +49,13 @@ def move_ghost(ghost_id, direction, screen, clients, client_socket) -> None:
     elif direction == "RIGHT":
         new_col += 1
 
-    if grid[new_row][new_col] != 1 and grid[new_row][new_col] != 3 and grid[new_row][new_col] != 5:
+    if grid[new_row][new_col] != 1 and grid[new_row][new_col] != 3 and grid[new_row][new_col] != 5 and grid[new_row][new_col] != 6:
         grid[row][col] = 0  # Clear old position
         grid[new_row][new_col] = ghost["cell"]  # Move ghost
         ghost["pos"] = (new_row, new_col)
 
     if ghost_id == current_ghost:
         check_collision(ghost_id, screen, clients, client_socket)
-        move_pacman(ghost_id, screen, clients, client_socket)
 
 def move_pacman(ghost_id, screen, clients, client_socket) -> None:
     global pacman_pos
@@ -187,18 +187,20 @@ def bfs_alg(ghost_id):
                         return inverse_tuple(d)
                     break
 
-def main() -> None:
+def main(server_socket: socket, clients: list) -> None:
+    start_flag = None
+    start_flag = input("Press start flag: ")
     global current_direction, last_direction, direction_send, client_id_recv, packet_type_recv, last_sync
     last_sync = time.time()
     last_direction_time = time.time()
     pygame.init()
     screen = pygame.display.set_mode((GRID_WIDTH * GRID_SIZE, GRID_HEIGHT * GRID_SIZE))
     pygame.display.set_caption("pacman2")
-    pacman = pygame.image.load('images/pacman.png').convert_alpha()
-    ghost1 = pygame.image.load('images/ghost1.png').convert_alpha()
-    ghost2 = pygame.image.load('images/ghost2.png').convert_alpha()
-    ghost3 = pygame.image.load('images/ghost3.png').convert_alpha()
-    ghost4 = pygame.image.load('images/ghost4.png').convert_alpha()
+    pacman = pygame.image.load(os.path.join(BASE_DIR, 'images/pacman.png')).convert_alpha()
+    ghost1 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost1.png')).convert_alpha()
+    ghost2 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost2.png')).convert_alpha()
+    ghost3 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost3.png')).convert_alpha()
+    ghost4 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost4.png')).convert_alpha()
 
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     client_socket.bind(("0.0.0.0", 0))
@@ -233,9 +235,12 @@ def main() -> None:
                     current_direction = "LEFT"
                 elif event.key == pygame.K_RIGHT:
                     current_direction = "RIGHT"
+        ghost_id = current_ghost
         if current_direction:
             ghost_id = current_ghost
-            move_ghost(ghost_id, current_direction, screen, clients, client_socket)
+            move_ghost(ghost_id, current_direction, screen, clients, server_socket)
+        if start_flag == "s":
+            move_pacman(ghost_id, screen, clients, server_socket)
 
         # Receive direction data
         readlist, _, _ = select.select(client_sockets, [], [], 0.1)
@@ -326,23 +331,23 @@ def main() -> None:
                 client_socket.sendto(packet, client)
                 print(f"Sent packet to {client}: {packet}")
 
-        if time.time() - last_sync >= 2:
-            ghost = ghosts[current_ghost]
-            ghost["seq"] += 1
-            seq = ghost["seq"]
-            ghost_id = current_ghost
-            row, col = ghost["pos"]
-            packet_type = 2  # 2 for sync
-            packet = struct.pack("BBBBB", ghost_id, packet_type, row, col, seq)
-            print("packet:", packet)
-            for client in clients:
-                client_socket.sendto(packet, client)
-                print(f"Sent sync to {client}: {packet}")
-            last_sync = time.time()
+        # if time.time() - last_sync >= 2:
+        #     ghost = ghosts[current_ghost]
+        #     ghost["seq"] += 1
+        #     seq = ghost["seq"]
+        #     ghost_id = current_ghost
+        #     row, col = ghost["pos"]
+        #     packet_type = 2  # 2 for sync
+        #     packet = struct.pack("BBBBB", ghost_id, packet_type, row, col, seq)
+        #     print("packet:", packet)
+        #     for client in clients:
+        #         client_socket.sendto(packet, client)
+        #         print(f"Sent sync to {client}: {packet}")
+        #     last_sync = time.time()
 
         draw_maze(screen, ghost1, ghost2, ghost3, ghost4, pacman)
         pygame.display.flip()
-        clock.tick(1)
+        clock.tick(2)
 
 if __name__ == "__main__":
     main()
