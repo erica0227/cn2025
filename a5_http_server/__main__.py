@@ -15,7 +15,6 @@ def get_file_type(path):
     else:
         return "text/plain"
 
-
 def parse_arguments() -> Namespace:
     """
     Parse command line arguments for the http server.
@@ -40,7 +39,6 @@ def parse_arguments() -> Namespace:
                         type=str, help="Set the directory to serve", default="a5_http_server/public")
 
     return parser.parse_args()
-
 
 def main() -> None:
     parser: Namespace = parse_arguments()
@@ -101,7 +99,6 @@ class Headers:
         header_str += "\r\n"
         return header_str.encode("utf-8")
 
-
 """
 header = (
   "HTTP/1.1 200 OK\r\n"
@@ -127,9 +124,7 @@ def receive_msg(sock: socket.socket, base_directory: str) -> None:
 
         header = Headers()
         header.set_status("200 OK")
-
         header.set_connection(True)
-
 
         if  len(request) >= 3 and client_msg.startswith("GET") and request[1].startswith("/"):
             # print(f"Received path: {request_path}"
@@ -153,6 +148,7 @@ def receive_msg(sock: socket.socket, base_directory: str) -> None:
                     header.set_connection(False)
 
             else:
+                # invalid format
                 request_path = base_directory + "/400.html"
                 with open(request_path, "rb") as f:
                     body = f.read()
@@ -160,6 +156,7 @@ def receive_msg(sock: socket.socket, base_directory: str) -> None:
                 header.set_connection(True)
 
         else:
+            # invalid format
             request_path = base_directory + "/400.html"
             with open(request_path, "rb") as f:
                 body = f.read()

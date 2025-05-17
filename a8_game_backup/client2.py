@@ -281,10 +281,6 @@ def main(server_socket: socket, clients: list) -> None:
                         grid[ghost["pos"][0]][ghost["pos"][1]] = 0
                         # ghost["pos"] = None
                         ghost["alive"] = False
-                    if packet_type_recv == 5:
-                        pacman_pos = (value1, value2)
-                        grid[value1][value2] = 2
-
             except socket.timeout:
                 pass
 

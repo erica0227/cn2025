@@ -49,13 +49,15 @@ def move_ghost(ghost_id, direction, screen, clients, server_socket) -> None:
     elif direction == "RIGHT":
         new_col += 1
 
-    if grid[new_row][new_col] != 1 and grid[new_row][new_col] != 4 and grid[new_row][new_col] != 5:
+    if grid[new_row][new_col] != 1 and grid[new_row][new_col] != 4 and grid[new_row][new_col] != 5 and grid[new_row][new_col] != 6:
         grid[row][col] = 0  # Clear old position
         grid[new_row][new_col] = ghost["cell"]  # Move ghost
         ghost["pos"] = (new_row, new_col)
 
     if ghost_id == current_ghost:
         check_collision(ghost_id, screen, clients, server_socket)
+
+    # send the changes here
 
 def move_pacman(ghost_id, screen, clients, server_socket) -> None:
     global pacman_pos
@@ -187,8 +189,10 @@ def bfs_alg(ghost_id):
                         return inverse_tuple(d)
                     break
 
-def main() -> None:
-    global current_direction, last_direction, direction_send, client_id_recv, packet_type_recv
+def main(server_socket: socket, clients: list) -> None:
+    start_flag = None
+    start_flag = input("Press start flag: ")
+    global current_direction, last_direction, direction_send, client_id_recv, packet_type_recv, pacman_pos
     last_sync = time.time()
     last_direction_time = time.time()
     pygame.init()
@@ -200,11 +204,7 @@ def main() -> None:
     ghost3 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost3.png')).convert_alpha()
     ghost4 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost4.png')).convert_alpha()
 
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    server_socket.bind(('0.0.0.0', 0))
-    print(f"[+] Listening on {server_socket.getsockname()} (IP, port)")
     client_sockets = [server_socket]
-    clients = set()
 
     running = True
     while running:
@@ -239,11 +239,7 @@ def main() -> None:
         readlist, _, _ = select.select(client_sockets, [], [], 0.1)
         for sock in readlist:
             try:
-                data, addr = sock.recvfrom(1024) # if data is connect flag send ack back
-                print(f"Received {data} from {addr}")
-                if addr not in clients:
-                    clients.add(addr)
-                    sock.sendto(b"b", addr)
+                data, addr = sock.recvfrom(1024)
                 try:
                     client_id_recv, packet_type_recv, value1, value2, seq = struct.unpack("BBBBB", data)
                     ghost = ghosts[client_id_recv]
@@ -286,6 +282,9 @@ def main() -> None:
                     if packet_type_recv == 4:
                         grid[ghost["pos"][0]][ghost["pos"][1]] = 0
                         # ghost["pos"] = None
+                    if packet_type_recv == 5:
+                        pacman_pos = (value1, value2)
+                        grid[value1][value2] = 2
             except socket.timeout:
                 pass
 

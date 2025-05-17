@@ -4,10 +4,9 @@ import pygame
 import queue
 import copy
 import struct
-import os
 import time
-from .map import grid
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+from map import grid
+
 # Constants
 GRID_WIDTH = len(grid[0])
 GRID_HEIGHT = len(grid)
@@ -17,16 +16,16 @@ BLUE = (0, 0, 255)
 RED = (255, 0, 0)
 WHITE = (255, 255, 255)
 
-current_ghost = 2
+current_ghost = 1
 ghosts = {
-    1: {"pos": (1, 1), "start": (1, 1), "cell": 3, "direction": None, "seq": 0, "skip_frame": False, "alive": True},
-    2: {"pos": (1, 13), "start": (1, 13), "cell": 4, "direction": None, "seq": 0, "skip_frame": False, "alive": True},
-    3: {"pos": (13, 1), "start": (13, 1), "cell": 5, "direction": None, "seq": 0, "skip_frame": False, "alive": True},
-    4: {"pos": (13, 13), "start": (13, 13), "cell": 6, "direction": None, "seq": 0, "skip_frame": False, "alive": True}
+    1: {"pos": (1, 1), "start": (1, 1), "cell": 3, "direction": None, "seq": 0, "skip_frame": False},
+    2: {"pos": (1, 13), "start": (1, 13), "cell": 4, "direction": None, "seq": 0, "skip_frame": False},
+    3: {"pos": (13, 1), "start": (13, 1), "cell": 5, "direction": None, "seq": 0, "skip_frame": False},
+    4: {"pos": (13, 13), "start": (13, 13), "cell": 6, "direction": None, "seq": 0, "skip_frame": False}
 }
 
 # Initialize game variables
-lives = 100
+lives = 3
 score = 0
 game_over = False
 current_direction = None
@@ -36,7 +35,7 @@ client_id_recv = 0
 packet_type_recv = 0
 pacman_pos = (7, 7)
 
-def move_ghost(ghost_id, direction, screen, clients, client_socket) -> None:
+def move_ghost(ghost_id, direction, screen, clients, server_socket) -> None:
     ghost = ghosts[ghost_id]
     row, col = ghost["pos"]
     new_row, new_col = row, col
@@ -49,15 +48,15 @@ def move_ghost(ghost_id, direction, screen, clients, client_socket) -> None:
     elif direction == "RIGHT":
         new_col += 1
 
-    if grid[new_row][new_col] != 1 and grid[new_row][new_col] != 3 and grid[new_row][new_col] != 5 and grid[new_row][new_col] != 6:
+    if grid[new_row][new_col] != 1 and grid[new_row][new_col] != 4 and grid[new_row][new_col] != 5 and grid[new_row][new_col] != 6:
         grid[row][col] = 0  # Clear old position
         grid[new_row][new_col] = ghost["cell"]  # Move ghost
         ghost["pos"] = (new_row, new_col)
 
     if ghost_id == current_ghost:
-        check_collision(ghost_id, screen, clients, client_socket)
+        check_collision(ghost_id, screen, clients, server_socket)
 
-def move_pacman(ghost_id, screen, clients, client_socket) -> None:
+def move_pacman(ghost_id, screen, clients, server_socket) -> None:
     global pacman_pos
 
     print("Pacman moved")
@@ -65,9 +64,9 @@ def move_pacman(ghost_id, screen, clients, client_socket) -> None:
     direction = bfs_alg(ghost_id)
 
     pacman_pos = tuple_add(pacman_pos, direction)
-    check_collision(ghost_id, screen, clients, client_socket)
+    check_collision(ghost_id, screen, clients, server_socket)
 
-def check_collision(ghost_id, screen, clients, client_socket):
+def check_collision(ghost_id, screen, clients, server_socket):
     global lives, pacman_pos, current_direction
     ghost = ghosts[ghost_id]
     if ghost["pos"] == pacman_pos:
@@ -80,7 +79,7 @@ def check_collision(ghost_id, screen, clients, client_socket):
             packet = struct.pack("BBBBB", ghost_id_send, packet_type, 0, 0, seq)
             print("packet", packet)
             for client in clients:
-                client_socket.sendto(packet, client)
+                server_socket.sendto(packet, client)
             display_message(screen, "You lost a life!", RED)
         if lives == 0:
             packet_type = 4
@@ -90,7 +89,7 @@ def check_collision(ghost_id, screen, clients, client_socket):
             packet = struct.pack("BBBBB", ghost_id_send, packet_type, 0, 0, seq)
             print("packet", packet)
             for client in clients:
-                client_socket.sendto(packet, client)
+                server_socket.sendto(packet, client)
             display_message(screen, "Game Over!", RED)
             pygame.quit()
             exit()
@@ -187,22 +186,26 @@ def bfs_alg(ghost_id):
                         return inverse_tuple(d)
                     break
 
-def main(server_socket: socket, clients: list) -> None:
+def main() -> None:
     start_flag = None
     start_flag = input("Press start flag: ")
-    global current_direction, last_direction, direction_send, client_id_recv, packet_type_recv, last_sync
+    global current_direction, last_direction, direction_send, client_id_recv, packet_type_recv
     last_sync = time.time()
     last_direction_time = time.time()
     pygame.init()
     screen = pygame.display.set_mode((GRID_WIDTH * GRID_SIZE, GRID_HEIGHT * GRID_SIZE))
-    pygame.display.set_caption("pacman2")
-    pacman = pygame.image.load(os.path.join(BASE_DIR, 'images/pacman.png')).convert_alpha()
-    ghost1 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost1.png')).convert_alpha()
-    ghost2 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost2.png')).convert_alpha()
-    ghost3 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost3.png')).convert_alpha()
-    ghost4 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost4.png')).convert_alpha()
+    pygame.display.set_caption("pacman1")
+    pacman = pygame.image.load('images/pacman.png').convert_alpha()
+    ghost1 = pygame.image.load('images/ghost1.png').convert_alpha()
+    ghost2 = pygame.image.load('images/ghost2.png').convert_alpha()
+    ghost3 = pygame.image.load('images/ghost3.png').convert_alpha()
+    ghost4 = pygame.image.load('images/ghost4.png').convert_alpha()
 
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    server_socket.bind(('0.0.0.0', 0))
+    print(f"[+] Listening on {server_socket.getsockname()} (IP, port)")
     client_sockets = [server_socket]
+    clients = set()
 
     running = True
     while running:
@@ -233,11 +236,15 @@ def main(server_socket: socket, clients: list) -> None:
         if start_flag == "s":
             move_pacman(ghost_id, screen, clients, server_socket)
 
-        # Receive direction data
+        # poll for incoming udp packets
         readlist, _, _ = select.select(client_sockets, [], [], 0.1)
         for sock in readlist:
             try:
-                data, addr = sock.recvfrom(1024)
+                data, addr = sock.recvfrom(1024) # if data is connect flag send ack back
+                print(f"Received {data} from {addr}")
+                if addr not in clients:
+                    clients.add(addr)
+                    sock.sendto(b"b", addr)
                 try:
                     client_id_recv, packet_type_recv, value1, value2, seq = struct.unpack("BBBBB", data)
                     ghost = ghosts[client_id_recv]
@@ -280,17 +287,12 @@ def main(server_socket: socket, clients: list) -> None:
                     if packet_type_recv == 4:
                         grid[ghost["pos"][0]][ghost["pos"][1]] = 0
                         # ghost["pos"] = None
-                        ghost["alive"] = False
-                    if packet_type_recv == 5:
-                        pacman_pos = (value1, value2)
-                        grid[value1][value2] = 2
-
             except socket.timeout:
                 pass
 
-        if ghosts[1]["skip_frame"] is False:
-            move_ghost(1, ghosts[1]["direction"], screen, clients, server_socket)
-        ghosts[1]["skip_frame"] = False
+        if ghosts[2]["skip_frame"] is False:
+            move_ghost(2, ghosts[2]["direction"], screen, clients, server_socket)
+        ghosts[2]["skip_frame"] = False
         if ghosts[3]["skip_frame"] is False:
             move_ghost(3, ghosts[3]["direction"], screen, clients, server_socket)
         ghosts[3]["skip_frame"] = False
@@ -331,13 +333,13 @@ def main(server_socket: socket, clients: list) -> None:
         #     packet = struct.pack("BBBBB", ghost_id, packet_type, row, col, seq)
         #     print("packet:", packet)
         #     for client in clients:
-        #         client_socket.sendto(packet, client)
+        #         server_socket.sendto(packet, client)
         #         print(f"Sent sync to {client}: {packet}")
         #     last_sync = time.time()
 
         draw_maze(screen, ghost1, ghost2, ghost3, ghost4, pacman)
         pygame.display.flip()
-        clock.tick(2)
+        clock.tick(2) # for adding the sync
 
 if __name__ == "__main__":
     main()

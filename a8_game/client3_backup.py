@@ -25,7 +25,7 @@ ghosts = {
 }
 
 # Initialize game variables
-lives = 3
+lives = 100
 score = 0
 game_over = False
 current_direction = None

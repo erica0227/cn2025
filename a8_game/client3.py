@@ -236,13 +236,8 @@ def main(server_socket: socket, clients: list) -> None:
         # Receive direction data
         readlist, _, _ = select.select(client_sockets, [], [], 0.1)
         for sock in readlist:
-            print("sock", sock)
             try:
                 data, addr = sock.recvfrom(1024)
-                print(f"Received {data} from {addr}")
-                if addr not in clients and data == b"b":
-                    clients.add(addr)
-                    # print(f"[+] New client discovered: {addr}")
                 try:
                     client_id_recv, packet_type_recv, value1, value2, seq = struct.unpack("BBBBB", data)
                     ghost = ghosts[client_id_recv]
@@ -269,7 +264,7 @@ def main(server_socket: socket, clients: list) -> None:
                                 ghost["direction"] = "LEFT"
                             elif direction == 4:
                                 ghost["direction"] = "RIGHT"
-                        move_ghost(ghost_id, ghost["direction"], screen, clients, client_socket)
+                        move_ghost(ghost_id, ghost["direction"], screen, clients, server_socket)
                         ghost["skip_frame"] = True
                     if packet_type_recv == 2:
                         grid[ghost["pos"][0]][ghost["pos"][1]] = 0
@@ -286,14 +281,18 @@ def main(server_socket: socket, clients: list) -> None:
                         grid[ghost["pos"][0]][ghost["pos"][1]] = 0
                         # ghost["pos"] = None
                         ghost["alive"] = False
+                    if packet_type_recv == 5:
+                        pacman_pos = (value1, value2)
+                        grid[value1][value2] = 2
+
             except socket.timeout:
                 pass
 
         if ghosts[1]["skip_frame"] is False:
-            move_ghost(1, ghosts[1]["direction"], screen, clients, client_socket)
+            move_ghost(1, ghosts[1]["direction"], screen, clients, server_socket)
         ghosts[1]["skip_frame"] = False
         if ghosts[2]["skip_frame"] is False:
-            move_ghost(2, ghosts[2]["direction"], screen, clients, client_socket)
+            move_ghost(2, ghosts[2]["direction"], screen, clients, server_socket)
         ghosts[2]["skip_frame"] = False
 
         # Interest management & Delta compressions
@@ -319,7 +318,7 @@ def main(server_socket: socket, clients: list) -> None:
             client_id_send = current_ghost  # from ghost1
             packet = struct.pack("BBBBB", client_id_send, packet_type_send, direction_send, 0, seq)
             for client in clients:
-                client_socket.sendto(packet, client)
+                server_socket.sendto(packet, client)
                 print(f"Sent packet to {client}: {packet}")
 
         # if time.time() - last_sync >= 2:
