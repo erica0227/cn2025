@@ -296,9 +296,9 @@ def main() -> None:
             except socket.timeout:
                 pass
 
-        if ghosts[2]["skip_frame"] is False:
-            move_ghost(2, ghosts[2]["direction"], screen, clients, client_socket)
-        ghosts[2]["skip_frame"] = False
+        if ghosts[1]["skip_frame"] is False:
+            move_ghost(1, ghosts[1]["direction"], screen, clients, client_socket)
+        ghosts[1]["skip_frame"] = False
         if ghosts[3]["skip_frame"] is False:
             move_ghost(3, ghosts[3]["direction"], screen, clients, client_socket)
         ghosts[3]["skip_frame"] = False
@@ -325,6 +325,7 @@ def main() -> None:
             packet_type_send = 1  # 1 means position
             client_id_send = current_ghost  # from ghost1
             packet = struct.pack("BBBBB", client_id_send, packet_type_send, direction_send, 0, seq)
+            print("clients", clients)
             for client in clients:
                 client_socket.sendto(packet, client)
                 print(f"Sent packet to {client}: {packet}")

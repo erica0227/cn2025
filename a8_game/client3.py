@@ -234,7 +234,7 @@ def main(server_socket: socket, clients: list) -> None:
             move_pacman(ghost_id, screen, clients, server_socket)
 
         # Receive direction data
-        readlist, _, _ = select.select(client_sockets, [], [], 0.1)
+        readlist, _, _ = select.select(client_sockets, [], [], 0.01)
         for sock in readlist:
             try:
                 data, addr = sock.recvfrom(1024)
@@ -296,7 +296,7 @@ def main(server_socket: socket, clients: list) -> None:
         ghosts[2]["skip_frame"] = False
 
         # Interest management & Delta compressions
-        if current_direction != last_direction and current_direction != None:
+        if current_direction != last_direction:
             print("current direction:", current_direction)
             print("last direction:", last_direction)
             if current_direction == "UP":

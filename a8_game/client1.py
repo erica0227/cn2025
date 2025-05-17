@@ -19,10 +19,10 @@ WHITE = (255, 255, 255)
 
 current_ghost = 1
 ghosts = {
-    1: {"pos": (1, 1), "start": (1, 1), "cell": 3, "direction": None, "seq": 0, "skip_frame": False},
-    2: {"pos": (1, 13), "start": (1, 13), "cell": 4, "direction": None, "seq": 0, "skip_frame": False},
-    3: {"pos": (13, 1), "start": (13, 1), "cell": 5, "direction": None, "seq": 0, "skip_frame": False},
-    4: {"pos": (13, 13), "start": (13, 13), "cell": 6, "direction": None, "seq": 0, "skip_frame": False}
+    1: {"pos": (1, 1), "pixel_pos": (1 * GRID_SIZE, 1 * GRID_SIZE), "start": (1, 1), "cell": 3, "direction": None, "seq": 0, "skip_frame": False},
+    2: {"pos": (1, 13), "pixel_pos": (1 * GRID_SIZE, 13 * GRID_SIZE), "start": (1, 13), "cell": 4, "direction": None, "seq": 0, "skip_frame": False},
+    3: {"pos": (13, 1), "pixel_pos": (13 * GRID_SIZE, 1 * GRID_SIZE), "start": (13, 1), "cell": 5, "direction": None, "seq": 0, "skip_frame": False},
+    4: {"pos": (13, 13), "pixel_pos": (13 * GRID_SIZE, 13 * GRID_SIZE), "start": (13, 13), "cell": 6, "direction": None, "seq": 0, "skip_frame": False}
 }
 
 # Initialize game variables
@@ -38,6 +38,20 @@ pacman_pos = (7, 7)
 
 def move_ghost(ghost_id, direction, screen, clients, server_socket) -> None:
     ghost = ghosts[ghost_id]
+    # speed = 2
+    # px, py = ghost["pixel_pos"]
+    # if direction == "UP":
+    #     px -= speed
+    # elif direction == "DOWN":
+    #     px += speed
+    # elif direction == "LEFT":
+    #     py -= speed
+    # elif direction == "RIGHT":
+    #     py += speed
+    # ghost["pixel_pos"] = (px, py)
+    #
+    # if px % GRID_SIZE == 0 and py % GRID_SIZE == 0:
+    # ghost["pos"] = (py // GRID_SIZE, px // GRID_SIZE)
     row, col = ghost["pos"]
     new_row, new_col = row, col
     if direction == "UP":
@@ -133,6 +147,14 @@ def draw_maze(screen, ghost1, ghost2, ghost3, ghost4, pacman) -> None:
                 screen.blit(ghost3, (ghosts[3]["pos"][1] * GRID_SIZE, ghosts[3]["pos"][0] * GRID_SIZE))
             elif cell == 6:
                 screen.blit(ghost4, (ghosts[4]["pos"][1] * GRID_SIZE, ghosts[4]["pos"][0] * GRID_SIZE))
+            # elif cell == 3:
+            #     screen.blit(ghost1, (ghosts[1]["pixel_pos"][1], ghosts[1]["pixel_pos"][0]))
+            # elif cell == 4:
+            #     screen.blit(ghost2, (ghosts[2]["pixel_pos"][1], ghosts[2]["pixel_pos"][0]))
+            # elif cell == 5:
+            #     screen.blit(ghost3, (ghosts[3]["pixel_pos"][1], ghosts[3]["pixel_pos"][0]))
+            # elif cell == 6:
+            #     screen.blit(ghost4, (ghosts[4]["pixel_pos"][1], ghosts[4]["pixel_pos"][0]))
 
 def tuple_add(t1: tuple[int, int], t2: tuple[int, int]) -> tuple[int, int]:
     return t1[0] + t2[0], t1[1] + t2[1]
@@ -236,7 +258,7 @@ def main(server_socket: socket, clients: list) -> None:
             move_pacman(ghost_id, screen, clients, server_socket)
 
         # poll for incoming udp packets
-        readlist, _, _ = select.select(client_sockets, [], [], 0.1)
+        readlist, _, _ = select.select(client_sockets, [], [], 0.01)
         for sock in readlist:
             try:
                 data, addr = sock.recvfrom(1024)
@@ -296,7 +318,7 @@ def main(server_socket: socket, clients: list) -> None:
         ghosts[3]["skip_frame"] = False
 
         # Interest management & Delta compressions
-        if current_direction != last_direction and current_direction != None:
+        if current_direction != last_direction:
             print("current direction:", current_direction)
             print("last direction:", last_direction)
             if current_direction == "UP":
