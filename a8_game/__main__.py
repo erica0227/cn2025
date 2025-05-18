@@ -163,6 +163,8 @@ def main() -> None:
             player = 2
         elif len(hosts) == 1:
             player = 3
+        elif len(hosts) == 2:
+            player = 4
         else:
             raise Exception("no fourth wheels allowed")
         hosts.append(addr)
@@ -175,12 +177,16 @@ def main() -> None:
             elif data.startswith(b"s"):
                 print("player: ", player)
                 if player == 2:
+                    from .pacman import main
+                    print(f"check hosts: {hosts}")
+                    return main(server_socket, hosts)
+                if player == 3:
                     from .client2 import main
-                    print(f"check hosts2: {hosts}")
+                    print(f"check hosts: {hosts}")
                     return main(server_socket, hosts)
                 else:
                     from .client3 import main
-                    print(f"check hosts3: {hosts}")
+                    print(f"check hosts: {hosts}")
                     return main(server_socket, hosts)
     else:
         print("[!] Invalid choice")
