@@ -27,7 +27,7 @@ ghosts = {
 }
 
 # Initialize game variables
-lives = 20
+lives = 10
 score = 0
 game_over = False
 current_direction = None
@@ -35,7 +35,7 @@ last_direction = None
 direction_send = 0
 client_id_recv = 0
 packet_type_recv = 0
-pacman_pos = (10, 9)
+pacman_pos = (20, 17)
 MAX_RECENT = 2
 recent_packets = {}
 received_seqs = set()
@@ -66,60 +66,65 @@ def move_ghost(ghost_id, direction, screen, clients, client_socket) -> None:
         grid[new_row][new_col] = ghost["cell"]  # Move ghost
         ghost["pos"] = (new_row, new_col)
 
-    check_collision(ghost_id, screen, clients, client_socket)
+    # check_collision(ghost_id, screen, clients, client_socket)
 
 def move_pacman(ghost_id, screen, clients, client_socket) -> None:
     global pacman_pos
 
     print("Pacman moved")
     print("Pacman position:", pacman_pos)
-    direction = bfs_alg(ghost_id)
+    # direction = bfs_alg(ghost_id)
+    # pacman_pos = tuple_add(pacman_pos, direction)
+    # check_collision(ghost_id, screen, clients, client_socket)
 
-    pacman_pos = tuple_add(pacman_pos, direction)
-    check_collision(ghost_id, screen, clients, client_socket)
+def tuple_add(t1: tuple[int, int], t2: tuple[int, int]) -> tuple[int, int]:
+    return t1[0] + t2[0], t1[1] + t2[1]
+def inverse_tuple(t1: tuple[int, int]) -> tuple[int, int]:
+    return -t1[0], -t1[1]
 
-def check_collision(ghost_id, screen, clients, client_socket):
-    global lives, current_direction
-    pacman_pos = ghosts[4]["pos"]
-    ghost = ghosts[ghost_id]
-    if ghost["pos"] == pacman_pos and ghost_id != 4:
-        lives -= 1
-        if lives > 0:
-            packet_type = 3
-            ghost_id_send = ghost_id
-            seq = ghost["seq"] + 1
-            ghost["seq"] = seq
-            packet = struct.pack("BBBBB", ghost_id_send, packet_type, 0, 0, seq)
-            # save_recent_packet(seq, packet)
-            print("packet", packet)
-            for client in clients:
-                client_socket.sendto(packet, client)
-            # display_message(screen, "You lost a life!", RED)
-        if lives == 0:
-            packet_type = 4
-            ghost_id_send = ghost_id
-            seq = ghost["seq"] + 1
-            ghost["seq"] = seq
-            packet = struct.pack("BBBBB", ghost_id_send, packet_type, 0, 0, seq)
-            # save_recent_packet(seq, packet)
-            print("packet", packet)
-            for client in clients:
-                client_socket.sendto(packet, client)
-            display_message(screen, "Game Over!", RED)
-            pygame.quit()
-            exit()
-
-        # Reset Pac-Man position and update the maze immediately
-        grid[pacman_pos[0]][pacman_pos[1]] = 0
-        grid[ghost["pos"][0]][ghost["pos"][1]] = 0
-        # Now reset logical positions
-        ghost["pos"] = ghost["start"]
-        pacman_pos = (10, 9)
-        # Now update grid to show new positions
-        grid[ghost["pos"][0]][ghost["pos"][1]] = ghost["cell"]
-        grid[pacman_pos[0]][pacman_pos[1]] = 2
-        current_direction = None
-        last_direction = None
+# def check_collision(ghost_id, screen, clients, client_socket):
+#     global lives, current_direction
+#     pacman_pos = ghosts[4]["pos"]
+#     ghost = ghosts[ghost_id]
+#     if ghost["pos"] == pacman_pos and ghost_id != 4:
+#         print("Pacman collision", ghost_id)
+#         lives -= 1
+#         if lives > 0:
+#             packet_type = 3
+#             ghost_id_send = ghost_id
+#             seq = ghost["seq"] + 1
+#             ghost["seq"] = seq
+#             packet = struct.pack("!BBBBH", ghost_id_send, packet_type, 0, 0, seq)
+#             # save_recent_packet(seq, packet)
+#             print("packet", packet)
+#             for client in clients:
+#                 client_socket.sendto(packet, client)
+#             # display_message(screen, "You lost a life!", RED)
+#         if lives == 0:
+#             packet_type = 4
+#             ghost_id_send = ghost_id
+#             seq = ghost["seq"] + 1
+#             ghost["seq"] = seq
+#             packet = struct.pack("!BBBBH", ghost_id_send, packet_type, 0, 0, seq)
+#             # save_recent_packet(seq, packet)
+#             print("packet", packet)
+#             for client in clients:
+#                 client_socket.sendto(packet, client)
+#             display_message(screen, "Game Over!", RED)
+#             pygame.quit()
+#             exit()
+#
+#         # Reset Pac-Man position and update the maze immediately
+#         grid[pacman_pos[0]][pacman_pos[1]] = 0
+#         grid[ghost["pos"][0]][ghost["pos"][1]] = 0
+#         # Now reset logical positions
+#         ghost["pos"] = ghost["start"]
+#         pacman_pos = (20, 17)
+#         # Now update grid to show new positions
+#         grid[ghost["pos"][0]][ghost["pos"][1]] = ghost["cell"]
+#         grid[pacman_pos[0]][pacman_pos[1]] = 2
+#         current_direction = None
+#         last_direction = None
 
 def display_message(screen, message, color = WHITE):
     font = pygame.font.Font(None, 50)
@@ -146,65 +151,9 @@ def draw_maze(screen, ghost1, ghost2, ghost3, ghost4) -> None:
             elif cell == 6:
                 screen.blit(ghost4, (ghosts[4]["pos"][1] * GRID_SIZE, ghosts[4]["pos"][0] * GRID_SIZE))
 
-def tuple_add(t1: tuple[int, int], t2: tuple[int, int]) -> tuple[int, int]:
-    return t1[0] + t2[0], t1[1] + t2[1]
-
-def inverse_tuple(t1: tuple[int, int]) -> tuple[int, int]:
-    return -t1[0], -t1[1]
-
-def bfs_alg(ghost_id):
-    global pacman_pos
-    ghost = ghosts[ghost_id]
-    visit_grid = copy.deepcopy(grid)  # deep copy
-    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-    q = queue.Queue()
-    q.put(pacman_pos)
-    visited = set()
-    visited.add(pacman_pos)
-    visit_grid[pacman_pos[0]][pacman_pos[1]] = 7  # mark start
-    counter = 8
-    ghost_found = False
-    ghost_position = None
-
-    while not q.empty() and not ghost_found:
-        size = q.qsize()
-        for _ in range(size):
-            pos = q.get()
-            for d in directions:
-                next_pos = tuple_add(pos, d)
-                r, c = next_pos
-                if 0 <= r < GRID_HEIGHT and 0 <= c < GRID_WIDTH:
-                    if visit_grid[r][c] == 0 and next_pos not in visited:
-                        visit_grid[r][c] = counter
-                        visited.add(next_pos)
-                        q.put(next_pos)
-                    elif (r, c) == tuple(ghost["pos"]):
-                        visit_grid[r][c] = counter
-                        ghost_position = (r, c)
-                        ghost_found = True
-                        break
-        counter += 1
-
-    if not ghost_position:
-        return (0, 0)  # fallback if no ghost found
-
-    # Backtrack from ghost to Pac-Man
-    current = ghost_position
-    while True:
-        for d in directions:
-            prev = tuple_add(current, d)
-            r, c = prev
-            if 0 <= r < GRID_HEIGHT and 0 <= c < GRID_WIDTH:
-                if visit_grid[r][c] == visit_grid[current[0]][current[1]] - 1:
-                    current = prev
-                    if current == pacman_pos:
-                        return inverse_tuple(d)
-                    break
-
 def main(server_socket: socket, clients: list) -> None:
     start_flag = None
     # start_flag = input("Press start flag: ")
-    global current_direction, last_direction, direction_send, client_id_recv, packet_type_recv, last_sync
     last_sync = time.time()
     last_redundant_send = time.time()
     pygame.init()
@@ -226,7 +175,8 @@ def main(server_socket: socket, clients: list) -> None:
         score_text = font.render(f"Score: {score}", True, WHITE)
         lives_text = font.render(f"Lives: {lives}", True, WHITE)
         # screen.blit(score_text, (10, GRID_SIZE // 4))
-        screen.blit(lives_text, (GRID_WIDTH * GRID_SIZE - 100, GRID_SIZE // 4))
+        # screen.blit(lives_text, (GRID_WIDTH * GRID_SIZE - 100, GRID_SIZE // 4))
+        screen.blit(score_text, (GRID_WIDTH * GRID_SIZE - 100, GRID_SIZE // 4))
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -253,7 +203,7 @@ def main(server_socket: socket, clients: list) -> None:
             try:
                 data, addr = sock.recvfrom(1024)
                 try:
-                    client_id_recv, packet_type_recv, value1, value2, seq = struct.unpack("BBBBB", data)
+                    client_id_recv, packet_type_recv, value1, value2, seq = struct.unpack("!BBBBH", data)
                     ghost = ghosts[client_id_recv]
                 except struct.error as e:
                     print(e)
@@ -292,11 +242,13 @@ def main(server_socket: socket, clients: list) -> None:
                         ghost["pos"] = ghost["start"]
                         grid[ghost["pos"][0]][ghost["pos"][1]] = ghost["cell"]
                         ghost["direction"] = None
+                        score += 1
                     if packet_type_recv == 4:
                         grid[ghost["pos"][0]][ghost["pos"][1]] = 0
                         # ghost["pos"] = None
                         ghost["alive"] = False
                         clients.remove(addr)
+                        score += 1
                     if packet_type_recv == 5:
                         pacman_pos = (value1, value2)
                         grid[value1][value2] = 2
@@ -333,7 +285,7 @@ def main(server_socket: socket, clients: list) -> None:
             # Send direction data
             packet_type_send = 1  # 1 means position
             client_id_send = current_ghost  # from ghost1
-            packet = struct.pack("BBBBB", client_id_send, packet_type_send, direction_send, 0, seq)
+            packet = struct.pack("!BBBBH", client_id_send, packet_type_send, direction_send, 0, seq)
             save_recent_packet(seq, packet)
             for client in clients:
                 server_socket.sendto(packet, client)
@@ -345,13 +297,12 @@ def main(server_socket: socket, clients: list) -> None:
             seq = ghost["seq"]
             ghost_id = current_ghost
             row, col = ghost["pos"]
-            packet_type = 2  # 2 for sync
-            packet = struct.pack("BBBBB", ghost_id, packet_type, row, col, seq)
-            # save_recent_packet(seq, packet)
-            print("packet:", packet)
+            packet_type = 2  # 2 for sync (ping)
+            packet = struct.pack("!BBBBH", ghost_id, packet_type, row, col, seq)
+            ping_send_times[seq] = time.time()
             for client in clients:
                 server_socket.sendto(packet, client)
-                print(f"Sent sync to {client}: {packet}")
+                print(f"Sent sync (ping) to {client}: {packet}")
             last_sync = time.time()
 
         if time.time() - last_redundant_send >= 4:
@@ -363,6 +314,9 @@ def main(server_socket: socket, clients: list) -> None:
                         server_socket.sendto(recent_packets[s], client)
                         print(f"Periodic redundant packet sent: seq {s}")
             last_redundant_send = time.time()
+
+        if score >= 20:
+            display_message(screen, "You Win!", WHITE)
 
         draw_maze(screen, ghost1, ghost2, ghost3, ghost4)
         pygame.display.flip()

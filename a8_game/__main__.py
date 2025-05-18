@@ -24,7 +24,6 @@ if 1 selected:
     if host inputs start then the host sends start signal to everyone and moves into the game in the way showed
     below 
 if 2 selected:
-
     display all found hosts in a list like so:
     selection number and hostname for example:
     (1) matthijs
