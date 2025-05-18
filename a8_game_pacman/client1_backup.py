@@ -25,7 +25,7 @@ ghosts = {
 }
 
 # Initialize game variables
-lives = 3
+lives = 100
 score = 0
 game_over = False
 current_direction = None
@@ -319,6 +319,7 @@ def main() -> None:
             packet_type_send = 1  # 1 means position
             client_id_send = current_ghost  # from ghost1
             packet = struct.pack("BBBBB", client_id_send, packet_type_send, direction_send, 0, seq)
+            print("clients", clients)
             for client in clients:
                 server_socket.sendto(packet, client)
                 print(f"Sent packet to {client}: {packet}")
