@@ -77,7 +77,7 @@ def check_collision(ghost_id, screen, clients, client_socket):
             ghost_id_send = ghost_id
             seq = ghost["seq"] + 1
             ghost["seq"] = seq
-            packet = struct.pack("BBBBB", ghost_id_send, packet_type, 0, 0, seq)
+            packet = struct.pack("BBBBBBB", ghost_id_send, packet_type, 0, 0, seq, 0, 0)
             print("packet", packet)
             for client in clients:
                 client_socket.sendto(packet, client)
@@ -87,7 +87,7 @@ def check_collision(ghost_id, screen, clients, client_socket):
             ghost_id_send = ghost_id
             seq = ghost["seq"] + 1
             ghost["seq"] = seq
-            packet = struct.pack("BBBBB", ghost_id_send, packet_type, 0, 0, seq)
+            packet = struct.pack("BBBBBBB", ghost_id_send, packet_type, 0, 0, seq, 0, 0)
             print("packet", packet)
             for client in clients:
                 client_socket.sendto(packet, client)
@@ -188,9 +188,11 @@ def bfs_alg(ghost_id):
                     break
 
 def main(server_socket: socket, clients: list) -> None:
+
     start_flag = None
-    start_flag = input("Press start flag: ")
-    global current_direction, last_direction, direction_send, client_id_recv, packet_type_recv, last_sync
+    # set start flag to s to start instantly for testing
+    start_flag = "s"
+    global current_direction, last_direction, direction_send, client_id_recv, packet_type_recv, last_sync, pacman_pos
     last_sync = time.time()
     last_direction_time = time.time()
     pygame.init()
@@ -231,7 +233,7 @@ def main(server_socket: socket, clients: list) -> None:
         if current_direction:
             move_ghost(ghost_id, current_direction, screen, clients, server_socket)
         if start_flag == "s":
-            move_pacman(ghost_id, screen, clients, server_socket)
+            check_collision(ghost_id, screen, clients, server_socket)
 
         # Receive direction data
         readlist, _, _ = select.select(client_sockets, [], [], 0.01)
@@ -239,7 +241,15 @@ def main(server_socket: socket, clients: list) -> None:
             try:
                 data, addr = sock.recvfrom(1024)
                 try:
-                    client_id_recv, packet_type_recv, value1, value2, seq = struct.unpack("BBBBB", data)
+                    # receive everything including alignment values
+                    # client 1 will send an extra x and y value of pacman to the end of the packet
+                    # client 2 and 3 will send 2 times 0 which can be safely ignored
+                    # added 2 more B to indicate receiving 2 more bytes and sending 2 more zero bytes
+                    # to make sure all packets have the same byte length
+                    client_id_recv, packet_type_recv, value1, value2, seq, x, y = struct.unpack("BBBBBBB", data)
+                    # if client id is 1 it is valid pacman location data
+                    if client_id_recv == 1:
+                        pacman_pos = (x,y)
                     ghost = ghosts[client_id_recv]
                     if seq <= ghost["seq"]:
                         continue
@@ -316,7 +326,8 @@ def main(server_socket: socket, clients: list) -> None:
             # Send direction data
             packet_type_send = 1  # 1 means position
             client_id_send = current_ghost  # from ghost1
-            packet = struct.pack("BBBBB", client_id_send, packet_type_send, direction_send, 0, seq)
+            # sending 2 extra bytes to keep alignment
+            packet = struct.pack("BBBBBBB", client_id_send, packet_type_send, direction_send, 0, seq, 0, 0)
             for client in clients:
                 server_socket.sendto(packet, client)
                 print(f"Sent packet to {client}: {packet}")

@@ -93,7 +93,7 @@ def check_collision(ghost_id, screen, clients, server_socket):
             ghost_id_send = ghost_id
             seq = ghost["seq"] + 1
             ghost["seq"] = seq
-            packet = struct.pack("BBBBB", ghost_id_send, packet_type, 0, 0, seq)
+            packet = struct.pack("BBBBBBB", ghost_id_send, packet_type, 0, 0, seq, 0, 0)
             print("packet", packet)
             for client in clients:
                 server_socket.sendto(packet, client)
@@ -103,7 +103,7 @@ def check_collision(ghost_id, screen, clients, server_socket):
             ghost_id_send = ghost_id
             seq = ghost["seq"] + 1
             ghost["seq"] = seq
-            packet = struct.pack("BBBBB", ghost_id_send, packet_type, 0, 0, seq)
+            packet = struct.pack("BBBBBBB", ghost_id_send, packet_type, 0, 0, seq, 0, 0)
             print("packet", packet)
             for client in clients:
                 server_socket.sendto(packet, client)
@@ -163,7 +163,7 @@ def inverse_tuple(t1: tuple[int, int]) -> tuple[int, int]:
     return -t1[0], -t1[1]
 
 def bfs_alg(ghost_id):
-    global pacman_pos
+    global pacman_pos, grid
     ghost = ghosts[ghost_id]
     visit_grid = copy.deepcopy(grid)  # deep copy
     directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
@@ -188,7 +188,7 @@ def bfs_alg(ghost_id):
                         visit_grid[r][c] = counter
                         visited.add(next_pos)
                         q.put(next_pos)
-                    elif (r, c) == tuple(ghost["pos"]):
+                    elif 3 <= grid[r][c] < 6:
                         visit_grid[r][c] = counter
                         ghost_position = (r, c)
                         ghost_found = True
@@ -213,7 +213,8 @@ def bfs_alg(ghost_id):
 
 def main(server_socket: socket, clients: list) -> None:
     start_flag = None
-    start_flag = input("Press start flag: ")
+    # set start flag to s to start instantly for testing
+    start_flag = "s"
     global current_direction, last_direction, direction_send, client_id_recv, packet_type_recv, pacman_pos
     last_sync = time.time()
     last_direction_time = time.time()
@@ -263,7 +264,7 @@ def main(server_socket: socket, clients: list) -> None:
             try:
                 data, addr = sock.recvfrom(1024)
                 try:
-                    client_id_recv, packet_type_recv, value1, value2, seq = struct.unpack("BBBBB", data)
+                    client_id_recv, packet_type_recv, value1, value2, seq, _, _ = struct.unpack("BBBBBBB", data)
                     ghost = ghosts[client_id_recv]
                     if seq <= ghost["seq"]:
                         continue
@@ -318,30 +319,32 @@ def main(server_socket: socket, clients: list) -> None:
         ghosts[3]["skip_frame"] = False
 
         # Interest management & Delta compressions
-        if current_direction != last_direction:
-            print("current direction:", current_direction)
-            print("last direction:", last_direction)
-            if current_direction == "UP":
-                direction_send = 1
-            elif current_direction == "DOWN":
-                direction_send = 2
-            elif current_direction == "LEFT":
-                direction_send = 3
-            elif current_direction == "RIGHT":
-                direction_send = 4
-            last_direction = current_direction
+        # removed from host for testing migth add back later
+        # if current_direction != last_direction:
+        print("current direction:", current_direction)
+        print("last direction:", last_direction)
+        if current_direction == "UP":
+            direction_send = 1
+        elif current_direction == "DOWN":
+            direction_send = 2
+        elif current_direction == "LEFT":
+            direction_send = 3
+        elif current_direction == "RIGHT":
+            direction_send = 4
+        last_direction = current_direction
 
-            ghost = ghosts[current_ghost]
-            ghost["seq"] += 1
-            seq = ghost["seq"]
+        ghost = ghosts[current_ghost]
+        ghost["seq"] += 1
+        seq = ghost["seq"]
 
             # Send direction data
-            packet_type_send = 1  # 1 means position
-            client_id_send = current_ghost  # from ghost1
-            packet = struct.pack("BBBBB", client_id_send, packet_type_send, direction_send, 0, seq)
-            for client in clients:
-                server_socket.sendto(packet, client)
-                print(f"Sent packet to {client}: {packet}")
+        packet_type_send = 1  # 1 means position
+        client_id_send = current_ghost  # from ghost1
+        # sending pacman position to all the other clients
+        packet = struct.pack("BBBBBBB", client_id_send, packet_type_send, direction_send, 0, seq, pacman_pos[0], pacman_pos[1])
+        for client in clients:
+            server_socket.sendto(packet, client)
+            print(f"Sent packet to {client}: {packet}")
 
         # if time.time() - last_sync >= 2:
         #     ghost = ghosts[current_ghost]
