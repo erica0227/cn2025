@@ -49,20 +49,6 @@ def save_recent_packet(seq, packet):
 
 def move_ghost(ghost_id, direction, screen, clients, server_socket) -> None:
     ghost = ghosts[ghost_id]
-    # speed = 5
-    # px, py = ghost["pixel_pos"]
-    # if direction == "UP":
-    #     px -= speed
-    # elif direction == "DOWN":
-    #     px += speed
-    # elif direction == "LEFT":
-    #     py -= speed
-    # elif direction == "RIGHT":
-    #     py += speed
-    # ghost["pixel_pos"] = (px, py)
-
-    # if px % GRID_SIZE == 0 and py % GRID_SIZE == 0:
-    #     ghost["pos"] = (py // GRID_SIZE, px // GRID_SIZE)
     row, col = ghost["pos"]
     new_row, new_col = row, col
     if direction == "UP":
@@ -74,8 +60,7 @@ def move_ghost(ghost_id, direction, screen, clients, server_socket) -> None:
     elif direction == "RIGHT":
         new_col += 1
 
-        # if 0 <= new_row < len(grid) and 0 <= new_col < len(grid[0]):
-    if grid[new_row][new_col] != 1 and grid[new_row][new_col] != 4 and grid[new_row][new_col] != 5 and grid[new_row][new_col] != 6:
+    if grid[new_row][new_col] != 1:
         grid[row][col] = 0  # Clear old position
         grid[new_row][new_col] = ghost["cell"]  # Move ghost
         ghost["pos"] = (new_row, new_col)
@@ -95,9 +80,10 @@ def move_pacman(ghost_id, screen, clients, server_socket) -> None:
     check_collision(ghost_id, screen, clients, server_socket)
 
 def check_collision(ghost_id, screen, clients, server_socket):
-    global lives, pacman_pos, current_direction
+    global lives, current_direction
+    pacman_pos = ghosts[4]["pos"]
     ghost = ghosts[ghost_id]
-    if ghost["pos"] == pacman_pos:
+    if ghost["pos"] == pacman_pos and ghost_id != 4:
         lives -= 1
         if lives > 0:
             packet_type = 3
@@ -144,14 +130,14 @@ def display_message(screen, message, color = WHITE):
     pygame.display.flip()
     pygame.time.delay(2000)
 
-def draw_maze(screen, ghost1, ghost2, ghost3, ghost4, pacman) -> None:
+def draw_maze(screen, ghost1, ghost2, ghost3, ghost4) -> None:
     for row_idx, row in enumerate(grid):
         for col_idx, cell in enumerate(row):
             x, y = col_idx * GRID_SIZE, row_idx * GRID_SIZE
             if cell == 1:
                 pygame.draw.rect(screen, BLUE, (x, y, GRID_SIZE, GRID_SIZE))
-            elif cell == 2:
-                screen.blit(pacman, (pacman_pos[1] * GRID_SIZE, pacman_pos[0] * GRID_SIZE))
+            # elif cell == 2:
+            #     screen.blit(pacman, (pacman_pos[1] * GRID_SIZE, pacman_pos[0] * GRID_SIZE))
             elif cell == 3:
                 screen.blit(ghost1, (ghosts[1]["pos"][1] * GRID_SIZE, ghosts[1]["pos"][0] * GRID_SIZE))
             elif cell == 4:
@@ -225,6 +211,8 @@ def bfs_alg(ghost_id):
                     break
 
 def main(server_socket: socket, clients: list) -> None:
+    ping_rtts = {}
+    ping_send_times = {}
     start_flag = None
     # start_flag = input("Press start flag: ")
     global current_direction, last_direction, direction_send, client_id_recv, packet_type_recv, pacman_pos, last_sync
@@ -233,7 +221,7 @@ def main(server_socket: socket, clients: list) -> None:
     pygame.init()
     screen = pygame.display.set_mode((GRID_WIDTH * GRID_SIZE, GRID_HEIGHT * GRID_SIZE))
     pygame.display.set_caption("ghost1")
-    pacman = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost4.png')).convert_alpha()
+    # pacman = pygame.image.load(os.path.join(BASE_DIR, 'images/pacman.png')).convert_alpha()
     ghost1 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost1.png')).convert_alpha()
     ghost2 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost2.png')).convert_alpha()
     ghost3 = pygame.image.load(os.path.join(BASE_DIR, 'images/ghost3.png')).convert_alpha()
@@ -319,9 +307,19 @@ def main(server_socket: socket, clients: list) -> None:
                     if packet_type_recv == 4:
                         grid[ghost["pos"][0]][ghost["pos"][1]] = 0
                         # ghost["pos"] = None
+                        ghost["alive"] = False
+                        clients.remove(addr)
                     if packet_type_recv == 5:
                         pacman_pos = (value1, value2)
                         grid[value1][value2] = 2
+
+                    if packet_type_recv == 6:  # pong
+                        if seq in ping_send_times:
+                            rtt = time.time() - ping_send_times[seq]
+                            ping_rtts[client_id_recv] = rtt
+                            print(f"RTT from ghost {client_id_recv}: {rtt:.3f} sec")
+                            del ping_send_times[seq]  # Optional: clean up
+
             except socket.timeout:
                 pass
 
@@ -360,20 +358,47 @@ def main(server_socket: socket, clients: list) -> None:
                 server_socket.sendto(packet, client)
                 print(f"Sent packet to {client}: {packet}")
 
-        if time.time() - last_sync >= 1:
+        """
+                if time.time() - last_sync >= 0.5:
             ghost = ghosts[current_ghost]
             ghost["seq"] += 1
             seq = ghost["seq"]
             ghost_id = current_ghost
             row, col = ghost["pos"]
-            packet_type = 2  # 2 for sync
+            packet_type = 2 # 2 for sync
             packet = struct.pack("BBBBB", ghost_id, packet_type, row, col, seq)
             # save_recent_packet(seq, packet)
             print("packet:", packet)
+            #ping_send_times[seq] = time.time()
             for client in clients:
                 server_socket.sendto(packet, client)
                 print(f"Sent sync to {client}: {packet}")
             last_sync = time.time()
+        """
+        
+        if time.time() - last_sync >= 0.5:
+            ghost = ghosts[current_ghost]
+            ghost["seq"] += 1
+            seq = ghost["seq"]
+            ghost_id = current_ghost
+            row, col = ghost["pos"]
+            packet_type = 2  # 2 for sync (ping)
+            packet = struct.pack("BBBBB", ghost_id, packet_type, row, col, seq)
+            ping_send_times[seq] = time.time()
+            for client in clients:
+                server_socket.sendto(packet, client)
+                print(f"Sent sync (ping) to {client}: {packet}")
+            last_sync = time.time()
+
+        #try:
+            #data, addr = server_socket.recvfrom(1024)
+            #if len(data) == 2:
+               #ghost_id, seq = struct.unpack("BB", data)
+                #if seq in ping_send_times:
+                    #rtt = time.time() - ping_send_times[seq]
+                    #print(f"RTT from ghost {ghost_id}: {rtt:.3f} sec")
+        #except:
+            #pass
 
         if time.time() - last_redundant_send >= 4:
             ghost = ghosts[current_ghost]
@@ -385,7 +410,7 @@ def main(server_socket: socket, clients: list) -> None:
                         print(f"Periodic redundant packet sent: seq {s}")
             last_redundant_send = time.time()
 
-        draw_maze(screen, ghost1, ghost2, ghost3, ghost4, pacman)
+        draw_maze(screen, ghost1, ghost2, ghost3, ghost4)
         pygame.display.flip()
         clock.tick(15) # for adding the sync
 
