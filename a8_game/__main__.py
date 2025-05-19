@@ -120,6 +120,8 @@ def main() -> None:
                 for read in readlist:
                     print(read)
                     if read == sys.stdin.fileno():  # check if input starts with start, if so, start game
+                        # os.read is non blocking unlike sys.stdin which is blocking
+
                         buffer += os.read(sys.stdin.fileno(), 1).lower()
 
                         if "start" in buffer:
@@ -160,6 +162,7 @@ def main() -> None:
         print("please select a host")
         for host_name in host_names:
             print(f"{counter}) {host_name}")
+            counter += 1
         hostname = host_names[int(input()) - 1]
         host_info = hosts[hostname]
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -214,40 +217,40 @@ if __name__ == "__main__":
 # import sys
 # import json
 #
-# '''
-# lobby start the server or join the server
-# main:
-# ask for input 1 = create server become host
-# 2 = look for server and join
-# if 1 selected:
-#     ask for hostname
-#     select random port
-#     start hosting on port
-#     if someone joins send the Ip and port of that person to all other clients
-#     send the new client all the other clients their information
-#     lets say 1 2 and 3 are connected and 4 joins
-#     1 sends the information of 4 to 3 and 2 + 1 sends the information about 2 and 3 to 4
-#     if host inputs start then the host sends start signal to everyone and moves into the game in the way showed
-#     below
-# if 2 selected:
-#     display all found hosts in a list like so:
-#     selection number and hostname for example:
-#     (1) ishita
-#     (2) erica
-#     selection number is just a way to select which host to join
-#     send host that you want to join a join request and save all the IPs that you get from the host
-#     and save your player number
-#     wait for more clients to join or start signal
-#     if start signal:
-#         move to your client file like showed here:
-#             player =1 #would be assignent by host
-#             if player == 1:
-#                 from client1 import main
-#             elif player == 2:
-#                 from client2 import main
-#             # after everyone in lobby and host send signal
-#             # main(server_socket, ips)
-# '''
+'''
+lobby start the server or join the server
+main:
+ask for input 1 = create server become host
+2 = look for server and join
+if 1 selected:
+    ask for hostname
+    select random port
+    start hosting on port
+    if someone joins send the Ip and port of that person to all other clients
+    send the new client all the other clients their information
+    lets say 1 2 and 3 are connected and 4 joins
+    1 sends the information of 4 to 3 and 2 + 1 sends the information about 2 and 3 to 4
+    if host inputs start then the host sends start signal to everyone and moves into the game in the way showed
+    below
+if 2 selected:
+    display all found hosts in a list like so:
+    selection number and hostname for example:
+    (1) ishita
+    (2) erica
+    selection number is just a way to select which host to join
+    send host that you want to join a join request and save all the IPs that you get from the host
+    and save your player number
+    wait for more clients to join or start signal
+    if start signal:
+        move to your client file like showed here:
+            player =1 #would be assignent by host
+            if player == 1:
+                from client1 import main
+            elif player == 2:
+                from client2 import main
+            # after everyone in lobby and host send signal
+            # main(server_socket, ips)
+'''
 #
 # def local_ip_addr() -> str:
 #     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
