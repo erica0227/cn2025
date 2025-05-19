@@ -27,7 +27,7 @@ ghosts = {
 }
 
 # Initialize game variables
-lives = 20
+lives = 10
 score = 0
 game_over = False
 current_direction = None
@@ -35,10 +35,12 @@ last_direction = None
 direction_send = 0
 client_id_recv = 0
 packet_type_recv = 0
-pacman_pos = (10, 9)
+pacman_pos = (20, 17)
 MAX_RECENT = 2
 recent_packets = {}
 received_seqs = set()
+ping_rtts = {}
+ping_send_times = {}
 
 def save_recent_packet(seq, packet):
     recent_packets[seq] = packet
@@ -66,30 +68,38 @@ def move_ghost(ghost_id, direction, screen, clients, client_socket) -> None:
         grid[new_row][new_col] = ghost["cell"]  # Move ghost
         ghost["pos"] = (new_row, new_col)
 
-    check_collision(ghost_id, screen, clients, client_socket)
+    if ghost_id == current_ghost:
+        check_collision(ghost_id, screen, clients, client_socket)
 
 def move_pacman(ghost_id, screen, clients, client_socket) -> None:
     global pacman_pos
 
     print("Pacman moved")
     print("Pacman position:", pacman_pos)
-    direction = bfs_alg(ghost_id)
-
-    pacman_pos = tuple_add(pacman_pos, direction)
+    # direction = bfs_alg(ghost_id)
+    # pacman_pos = tuple_add(pacman_pos, direction)
     check_collision(ghost_id, screen, clients, client_socket)
 
+def tuple_add(t1: tuple[int, int], t2: tuple[int, int]) -> tuple[int, int]:
+    return t1[0] + t2[0], t1[1] + t2[1]
+def inverse_tuple(t1: tuple[int, int]) -> tuple[int, int]:
+    return -t1[0], -t1[1]
+
 def check_collision(ghost_id, screen, clients, client_socket):
-    global lives, current_direction
+    global lives, current_direction, pacman_pos
     pacman_pos = ghosts[4]["pos"]
     ghost = ghosts[ghost_id]
-    if ghost["pos"] == pacman_pos:
+    if ghost["pos"] == pacman_pos and ghost_id != 4:
+        local_rtt = ping_rtts.get(ghost_id, 0)
+        arbitration_time = time.time() - (local_rtt / 2)
+        print(f"Ghost {ghost_id} adjusted event time: {arbitration_time:.6f}s (RTT={local_rtt:.3f}s)")
         lives -= 1
         if lives > 0:
             packet_type = 3
             ghost_id_send = ghost_id
             seq = ghost["seq"] + 1
             ghost["seq"] = seq
-            packet = struct.pack("BBBBB", ghost_id_send, packet_type, 0, 0, seq)
+            packet = struct.pack("!BBBBH", ghost_id_send, packet_type, 0, 0, seq)
             # save_recent_packet(seq, packet)
             print("packet", packet)
             for client in clients:
@@ -100,7 +110,7 @@ def check_collision(ghost_id, screen, clients, client_socket):
             ghost_id_send = ghost_id
             seq = ghost["seq"] + 1
             ghost["seq"] = seq
-            packet = struct.pack("BBBBB", ghost_id_send, packet_type, 0, 0, seq)
+            packet = struct.pack("!BBBBH", ghost_id_send, packet_type, 0, 0, seq)
             # save_recent_packet(seq, packet)
             print("packet", packet)
             for client in clients:
@@ -110,14 +120,14 @@ def check_collision(ghost_id, screen, clients, client_socket):
             exit()
 
         # Reset Pac-Man position and update the maze immediately
-        grid[pacman_pos[0]][pacman_pos[1]] = 0
+        # grid[pacman_pos[0]][pacman_pos[1]] = 0
         grid[ghost["pos"][0]][ghost["pos"][1]] = 0
         # Now reset logical positions
         ghost["pos"] = ghost["start"]
-        pacman_pos = (10, 9)
+        # pacman_pos = (20, 17)
         # Now update grid to show new positions
         grid[ghost["pos"][0]][ghost["pos"][1]] = ghost["cell"]
-        grid[pacman_pos[0]][pacman_pos[1]] = 2
+        # grid[pacman_pos[0]][pacman_pos[1]] = 2
         current_direction = None
         last_direction = None
 
@@ -145,61 +155,6 @@ def draw_maze(screen, ghost1, ghost2, ghost3, ghost4) -> None:
                 screen.blit(ghost3, (ghosts[3]["pos"][1] * GRID_SIZE, ghosts[3]["pos"][0] * GRID_SIZE))
             elif cell == 6:
                 screen.blit(ghost4, (ghosts[4]["pos"][1] * GRID_SIZE, ghosts[4]["pos"][0] * GRID_SIZE))
-
-def tuple_add(t1: tuple[int, int], t2: tuple[int, int]) -> tuple[int, int]:
-    return t1[0] + t2[0], t1[1] + t2[1]
-
-def inverse_tuple(t1: tuple[int, int]) -> tuple[int, int]:
-    return -t1[0], -t1[1]
-
-def bfs_alg(ghost_id):
-    global pacman_pos
-    ghost = ghosts[ghost_id]
-    visit_grid = copy.deepcopy(grid)  # deep copy
-    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-    q = queue.Queue()
-    q.put(pacman_pos)
-    visited = set()
-    visited.add(pacman_pos)
-    visit_grid[pacman_pos[0]][pacman_pos[1]] = 7  # mark start
-    counter = 8
-    ghost_found = False
-    ghost_position = None
-
-    while not q.empty() and not ghost_found:
-        size = q.qsize()
-        for _ in range(size):
-            pos = q.get()
-            for d in directions:
-                next_pos = tuple_add(pos, d)
-                r, c = next_pos
-                if 0 <= r < GRID_HEIGHT and 0 <= c < GRID_WIDTH:
-                    if visit_grid[r][c] == 0 and next_pos not in visited:
-                        visit_grid[r][c] = counter
-                        visited.add(next_pos)
-                        q.put(next_pos)
-                    elif (r, c) == tuple(ghost["pos"]):
-                        visit_grid[r][c] = counter
-                        ghost_position = (r, c)
-                        ghost_found = True
-                        break
-        counter += 1
-
-    if not ghost_position:
-        return (0, 0)  # fallback if no ghost found
-
-    # Backtrack from ghost to Pac-Man
-    current = ghost_position
-    while True:
-        for d in directions:
-            prev = tuple_add(current, d)
-            r, c = prev
-            if 0 <= r < GRID_HEIGHT and 0 <= c < GRID_WIDTH:
-                if visit_grid[r][c] == visit_grid[current[0]][current[1]] - 1:
-                    current = prev
-                    if current == pacman_pos:
-                        return inverse_tuple(d)
-                    break
 
 def main(server_socket: socket, clients: list) -> None:
     start_flag = None
@@ -253,7 +208,7 @@ def main(server_socket: socket, clients: list) -> None:
             try:
                 data, addr = sock.recvfrom(1024)
                 try:
-                    client_id_recv, packet_type_recv, value1, value2, seq = struct.unpack("BBBBB", data)
+                    client_id_recv, packet_type_recv, value1, value2, seq = struct.unpack("!BBBBH", data)
                     ghost = ghosts[client_id_recv]
                 except struct.error as e:
                     print(e)
@@ -333,7 +288,7 @@ def main(server_socket: socket, clients: list) -> None:
             # Send direction data
             packet_type_send = 1  # 1 means position
             client_id_send = current_ghost  # from ghost1
-            packet = struct.pack("BBBBB", client_id_send, packet_type_send, direction_send, 0, seq)
+            packet = struct.pack("!BBBBH", client_id_send, packet_type_send, direction_send, 0, seq)
             save_recent_packet(seq, packet)
             for client in clients:
                 server_socket.sendto(packet, client)
@@ -345,13 +300,12 @@ def main(server_socket: socket, clients: list) -> None:
             seq = ghost["seq"]
             ghost_id = current_ghost
             row, col = ghost["pos"]
-            packet_type = 2  # 2 for sync
-            packet = struct.pack("BBBBB", ghost_id, packet_type, row, col, seq)
-            # save_recent_packet(seq, packet)
-            print("packet:", packet)
+            packet_type = 2  # 2 for sync (ping)
+            packet = struct.pack("!BBBBH", ghost_id, packet_type, row, col, seq)
+            ping_send_times[seq] = time.time()
             for client in clients:
                 server_socket.sendto(packet, client)
-                print(f"Sent sync to {client}: {packet}")
+                print(f"Sent sync (ping) to {client}: {packet}")
             last_sync = time.time()
 
         if time.time() - last_redundant_send >= 4:
