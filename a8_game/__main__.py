@@ -3,8 +3,11 @@ import select
 import ipaddress
 import random
 import threading
+import time
+
 import pygame
 import struct
+import os
 import sys
 import json
 
@@ -57,9 +60,10 @@ def local_ip_addr() -> str:
 
 def ip_scanning(ip, hosts: dict[str, tuple[str, int]]):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as server_socket:
-        server_socket.settimeout(0.5)
-        try:
-            for i in range(60000, 60100):
+        server_socket.settimeout(0.1)
+
+        for i in range(60000, 60100):
+            try:
                 server_socket.sendto(b"ping", (ip, i))
                 addr: tuple[str, int]
                 data, addr = server_socket.recvfrom(1024)
@@ -71,10 +75,12 @@ def ip_scanning(ip, hosts: dict[str, tuple[str, int]]):
                     host = data_encoded.split(" ", maxsplit=1)
                     hosts[host[1]] = addr
                     print(f"Sent ping to {ip}:{i}")
-        except (socket.timeout, ConnectionRefusedError):
-            pass
-        except Exception as e:
-            print(f"{ip}:{i} - {e}")
+            except socket.timeout as e:
+                pass
+            except ConnectionRefusedError:
+                pass
+            except Exception as e:
+                print(f"{ip}:{i} - {e}")
 
 def check_ips():
     local_ip = local_ip_addr()
@@ -108,11 +114,15 @@ def main() -> None:
         poll_list = [server_socket.fileno(), sys.stdin.fileno()]
         print(f"listening on {server_socket.getsockname()}")
         polling = True
+        buffer = ""
         while polling:
             for readlist in select.select(poll_list, [], [], 0.1):
                 for read in readlist:
+                    print(read)
                     if read == sys.stdin.fileno():  # check if input starts with start, if so, start game
-                        if sys.stdin.readline().startswith("start"):
+                        buffer += os.read(sys.stdin.fileno(), 1).lower()
+
+                        if "start" in buffer:
                             for host in hosts:
                                 server_socket.sendto(b"s", host)
                                 print(host)
@@ -121,6 +131,7 @@ def main() -> None:
                             return main(server_socket, hosts)
                     if read == server_socket.fileno():
                         data, addr = server_socket.recvfrom(1024)
+                        print(data)
                         if data == b"ping":
                             server_socket.sendto(f"pong {hostname}".encode(), addr)  # change .encode(), addr
                             continue #if ping sent and responded with ping then continue
