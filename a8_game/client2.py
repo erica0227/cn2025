@@ -68,8 +68,8 @@ def move_ghost(ghost_id, direction, screen, clients, client_socket) -> None:
         grid[new_row][new_col] = ghost["cell"]  # Move ghost
         ghost["pos"] = (new_row, new_col)
 
-    # if ghost_id == current_ghost:
-    check_collision(ghost_id, screen, clients, client_socket)
+    if ghost_id == current_ghost:
+        check_collision(ghost_id, screen, clients, client_socket)
 
 def move_pacman(ghost_id, screen, clients, client_socket) -> None:
     global pacman_pos
